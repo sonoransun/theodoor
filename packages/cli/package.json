@@ -1,0 +1,22 @@
+{
+  "name": "@theodoor/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Theodoor command-line tool: validate, simulate, analyze, align, export, fab, stats",
+  "bin": {
+    "theodoor": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@theodoor/core": "*",
+    "@theodoor/programs": "*"
+  },
+  "files": [
+    "dist"
+  ]
+}

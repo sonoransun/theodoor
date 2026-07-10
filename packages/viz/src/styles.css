@@ -1,0 +1,321 @@
+/* Theodoor visualizer — dark theme */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  color-scheme: dark;
+  background: #02030f;
+  color: #c8d3f0;
+  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#stage[hidden] {
+  display: none;
+}
+
+/* --- top bar: picker + transport ------------------------------------------ */
+
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 44px;
+  padding: 0 12px;
+  background: rgba(5, 8, 22, 0.88);
+  border-bottom: 1px solid #1a2340;
+}
+
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.picker-select {
+  padding: 4px 8px;
+  border: 1px solid #26304f;
+  border-radius: 4px;
+  background: #0a1230;
+  color: #c8d3f0;
+  font: inherit;
+}
+
+.picker-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #7f8db4;
+  font-size: 12px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.picker-file {
+  display: none;
+}
+
+.picker-status {
+  color: #ffb020;
+  font-size: 12px;
+}
+
+.picker-status[hidden] {
+  display: none;
+}
+
+.seat-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #7f8db4;
+  font-size: 12px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.transport-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tb-btn {
+  min-width: 34px;
+  padding: 4px 8px;
+  border: 1px solid #26304f;
+  border-radius: 4px;
+  background: #0a1230;
+  color: #c8d3f0;
+  font: 12px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  cursor: pointer;
+}
+
+.tb-btn:hover:not(:disabled) {
+  border-color: #3d4c7d;
+  background: #101a40;
+}
+
+.tb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tb-play {
+  min-width: 44px;
+}
+
+.tb-rate.tb-active {
+  border-color: #ffb020;
+  color: #ffb020;
+}
+
+.tb-time {
+  margin-left: 8px;
+  color: #7f8db4;
+  font: 12px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+
+.tb-disabled {
+  opacity: 0.6;
+}
+
+/* --- bottom timeline strip -------------------------------------------------- */
+
+.timeline-strip {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  height: 160px;
+  background: rgba(5, 8, 22, 0.92);
+  border-top: 1px solid #1a2340;
+}
+
+.timeline-strip[hidden] {
+  display: none;
+}
+
+.timeline-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+/* --- HUD overlays ------------------------------------------------------------ */
+
+.hud-root {
+  pointer-events: none;
+}
+
+.spl-meter {
+  position: fixed;
+  top: 100px;
+  right: 12px;
+  z-index: 15;
+  border: 1px solid #1a2340;
+  border-radius: 4px;
+}
+
+.exposure-meter {
+  position: fixed;
+  top: 328px;
+  right: 12px;
+  z-index: 15;
+  border: 1px solid #1a2340;
+  border-radius: 4px;
+}
+
+.exposure-meter[hidden] {
+  display: none;
+}
+
+.hud-seat {
+  position: fixed;
+  top: 78px;
+  right: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(6, 10, 26, 0.6);
+  color: #7f8db4;
+  font: 12px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hud-seat[hidden] {
+  display: none;
+}
+
+/* --- diagnostics panel -------------------------------------------------------- */
+
+.diag-panel {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: 44rem;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 18px 22px;
+  border: 1px solid #6b2a2a;
+  border-radius: 8px;
+  background: #170a0e;
+}
+
+.diag-panel[hidden] {
+  display: none;
+}
+
+.diag-panel h2 {
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #ff5252;
+}
+
+.diag-line {
+  margin-bottom: 4px;
+  font: 12px/1.5 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.diag-hint {
+  color: #7f8db4;
+  font-size: 12px;
+}
+
+.sim-badge {
+  position: fixed;
+  top: 56px;
+  left: 12px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 176, 32, 0.45);
+  border-radius: 4px;
+  background: rgba(24, 14, 0, 0.6);
+  color: #ffb020;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+}
+
+.fps-meter {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(6, 10, 26, 0.6);
+  color: #7f8db4;
+  font: 12px/1.4 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+#fallback {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #02030f;
+}
+
+#fallback[hidden] {
+  display: none;
+}
+
+.fatal-card {
+  max-width: 26rem;
+  padding: 24px 28px;
+  border: 1px solid #26304f;
+  border-radius: 8px;
+  background: #070b1c;
+}
+
+.fatal-card h1 {
+  margin-bottom: 10px;
+  font-size: 18px;
+  color: #ffb020;
+}
+
+.fatal-card p {
+  margin-bottom: 8px;
+}
+
+.fatal-hint {
+  color: #7f8db4;
+  font-size: 12px;
+}

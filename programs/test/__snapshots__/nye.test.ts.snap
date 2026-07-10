@@ -1,0 +1,90 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`nye programs > first 12 compiled cues match the snapshot 1`] = `
+[
+  {
+    "effectId": "laser-fan-rgb",
+    "fireSec": 4.167,
+    "id": "lasers-0",
+    "positionId": "laser-west",
+    "targetSec": 4.167,
+  },
+  {
+    "effectId": "laser-fan-rgb",
+    "fireSec": 5.833,
+    "id": "lasers-1",
+    "positionId": "laser-east",
+    "targetSec": 5.833,
+  },
+  {
+    "effectId": "panel-text-marquee",
+    "fireSec": 7.5,
+    "id": "panels-0",
+    "positionId": "panel-west",
+    "targetSec": 7.5,
+  },
+  {
+    "effectId": "panel-text-marquee",
+    "fireSec": 7.5,
+    "id": "panels-1",
+    "positionId": "panel-east",
+    "targetSec": 7.5,
+  },
+  {
+    "effectId": "star-formation-80",
+    "fireSec": 10.269,
+    "id": "drones-0",
+    "positionId": "pad-1",
+    "targetSec": 27.5,
+  },
+  {
+    "effectId": "willow-150-gold",
+    "fireSec": 23.9,
+    "id": "pyro-0-000",
+    "positionId": "rack-3",
+    "targetSec": 27.5,
+  },
+  {
+    "effectId": "chrysanthemum-150-silver",
+    "fireSec": 24.733,
+    "id": "pyro-0-001",
+    "positionId": "rack-6",
+    "targetSec": 28.333,
+  },
+  {
+    "effectId": "willow-150-gold",
+    "fireSec": 50.567,
+    "id": "pyro-1-000",
+    "positionId": "rack-4",
+    "targetSec": 54.167,
+  },
+  {
+    "effectId": "chrysanthemum-150-silver",
+    "fireSec": 51.4,
+    "id": "pyro-1-001",
+    "positionId": "rack-5",
+    "targetSec": 55,
+  },
+  {
+    "effectId": "laser-fan-rgb",
+    "fireSec": 54.167,
+    "id": "lasers-2",
+    "positionId": "laser-west",
+    "targetSec": 54.167,
+  },
+  {
+    "effectId": "laser-fan-rgb",
+    "fireSec": 60.833,
+    "id": "lasers-3",
+    "positionId": "laser-east",
+    "targetSec": 60.833,
+  },
+  {
+    "effectId": "willow-150-gold",
+    "fireSec": 77.233,
+    "id": "pyro-2-000",
+    "positionId": "rack-2",
+    "targetSec": 80.833,
+  },
+]
+`;

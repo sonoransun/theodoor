@@ -1,0 +1,15 @@
+{
+  "name": "@theodoor/core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Theodoor show engine: music, catalog, alignment solver, simulation, safety, exporters. Pure isomorphic TypeScript, zero runtime dependencies.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

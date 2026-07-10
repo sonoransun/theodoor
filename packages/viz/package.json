@@ -1,0 +1,16 @@
+{
+  "name": "@theodoor/viz",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Theodoor browser visualizer: WebGL renderer, Web Audio synth, timeline UI",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@theodoor/core": "*",
+    "@theodoor/programs": "*"
+  }
+}
