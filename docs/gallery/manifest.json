@@ -1,0 +1,80 @@
+[
+ {
+  "id": "hero-cosmos-orbit",
+  "file": "hero-cosmos-orbit.svg",
+  "title": "Night of the Spheres — act 2 orbit loop",
+  "kind": "animated"
+ },
+ {
+  "id": "keystone-cosmos-daybreak",
+  "file": "keystone-cosmos-daybreak.svg",
+  "title": "The keystone identity — one beat, four kinds of physics",
+  "kind": "static"
+ },
+ {
+  "id": "anim-crowd-ramp-cosmos",
+  "file": "anim-crowd-ramp-cosmos.svg",
+  "title": "Crowd broadcast latency — the ramp completes on the beat",
+  "kind": "animated"
+ },
+ {
+  "id": "site-lakeside-park",
+  "file": "site-lakeside-park.svg",
+  "title": "lakesidePark() — the flagship venue",
+  "kind": "static"
+ },
+ {
+  "id": "timeline-hallows",
+  "file": "timeline-hallows.svg",
+  "title": "The Unquiet Hour — full-show cue timeline",
+  "kind": "static"
+ },
+ {
+  "id": "exposure-hallows",
+  "file": "exposure-hallows.svg",
+  "title": "Carrier exposure by crowd cell — The Unquiet Hour",
+  "kind": "static"
+ },
+ {
+  "id": "spl-nye-vs-quiet",
+  "file": "spl-nye-vs-quiet.svg",
+  "title": "The quiet budget — NYE standard vs quiet at the center listener",
+  "kind": "static"
+ },
+ {
+  "id": "formations",
+  "file": "formations.svg",
+  "title": "Formation atlas — all eighteen kinds",
+  "kind": "static"
+ },
+ {
+  "id": "beam-footprint-geometry",
+  "file": "beam-footprint-geometry.svg",
+  "title": "Directional-audio footprint geometry",
+  "kind": "static"
+ },
+ {
+  "id": "scene-hallows-summit",
+  "file": "scene-hallows-summit.svg",
+  "title": "The Unquiet Hour — the summit, one sim snapshot",
+  "kind": "static"
+ },
+ {
+  "id": "anim-drone-morph-cosmos",
+  "file": "anim-drone-morph-cosmos.svg",
+  "title": "Fleet kinematics — launch grid to spiral galaxy to orrery",
+  "kind": "animated"
+ },
+ {
+  "id": "anim-beam-flyover-hallows",
+  "file": "anim-beam-flyover-hallows.svg",
+  "title": "Beam flyover — the audible footprint sweeps the lawn",
+  "kind": "animated"
+ },
+ {
+  "id": "fab-rack-drawing",
+  "file": "fab-rack-drawing.svg",
+  "title": "Fabrication output — a dimensioned mortar-rack drawing",
+  "kind": "static"
+ }
+]

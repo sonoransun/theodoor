@@ -66,6 +66,7 @@ export const COMMAND_NAMES = [
   'export',
   'fab',
   'stats',
+  'gallery',
 ] as const
 
 export type CommandName = (typeof COMMAND_NAMES)[number]
@@ -81,6 +82,7 @@ Commands:
              crowd-broadcast|beam-steering|cue-sheet)
   fab        write shop drawings / BOM (--target rack|panel|bom)
   stats      quick facts: cue counts, duration, SPL peaks, quiet pass/fail
+  gallery    write the README/docs showcase SVGs (ungated design artwork)
 
 Show input (exactly one, all commands except analyze):
   --show <id>          program id from the @theodoor/programs registry
@@ -101,6 +103,7 @@ Command options:
             --armed-ack <phrase>  'ARM CONFIRMED' — required for hardware targets
   fab       --target <t>          rack|panel|bom
   stats     --exposure            carrier-exposure report: worst cells + PASS/FAIL
+  gallery   --only <asset-id>     write just one gallery asset (default: all)
 
 Exit codes: 0 ok · 1 validation/budget failure · 2 usage · 3 I/O · 4 safety refusal`
 
@@ -132,6 +135,7 @@ const COMMAND_OPTIONS: Record<CommandName, Record<string, OptionSpec>> = {
   export: { ...SHOW_INPUT, ...GLOBAL, target: { type: 'string' }, 'armed-ack': { type: 'string' } },
   fab: { ...SHOW_INPUT, ...GLOBAL, target: { type: 'string' } },
   stats: { ...SHOW_INPUT, ...GLOBAL, exposure: { type: 'boolean' } },
+  gallery: { ...GLOBAL, only: { type: 'string' } },
 }
 
 /** All flags any command can carry, normalized (numbers parsed). */
@@ -149,6 +153,8 @@ export interface CliFlags {
   armedAck?: string
   /** stats: print the carrier-exposure worst-cell table + PASS/FAIL. */
   exposure?: boolean
+  /** gallery: write only the named asset. */
+  only?: string
 }
 
 export interface ParsedCli {
@@ -213,6 +219,8 @@ export function parseCli(argv: readonly string[]): ParsedCli {
   const armedAck = str('armed-ack')
   if (armedAck !== undefined) flags.armedAck = armedAck
   if (values['exposure'] === true) flags.exposure = true
+  const only = str('only')
+  if (only !== undefined) flags.only = only
 
   return { command: name, flags }
 }

@@ -16,6 +16,7 @@ import { runAlign } from './commands/align.js'
 import { runAnalyze } from './commands/analyze.js'
 import { runExport } from './commands/export.js'
 import { runFab } from './commands/fab.js'
+import { runGallery } from './commands/gallery.js'
 import { runSimulate } from './commands/simulate.js'
 import { runStats } from './commands/stats.js'
 import { runValidate } from './commands/validate.js'
@@ -63,6 +64,8 @@ async function main(argv: readonly string[]): Promise<number> {
         return await runFab(flags)
       case 'stats':
         return await runStats(flags)
+      case 'gallery':
+        return await runGallery(flags)
     }
   } catch (err) {
     const failure = classify(err)

@@ -205,7 +205,9 @@ export function makeCompiled(site: SitePlan = makeSite()): CompiledShow {
  * Also trips on raw '<'/'>' inside attribute values (escaping bugs), since
  * those would desync the tag scan.
  */
-export function assertBalancedSvg(svg: string): void {
+export function assertBalancedSvg(rawSvg: string): void {
+  // XML comments (gallery provenance stamps) are opaque to the tag scan.
+  const svg = rawSvg.replace(/<!--[\s\S]*?-->/g, '')
   const stack: string[] = []
   // escapeAttr/escapeText guarantee no raw '<'/'>' inside values or content,
   // so a tag is simply '<' ... '>' with no angle brackets in between.

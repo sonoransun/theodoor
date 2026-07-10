@@ -63,6 +63,15 @@ function callBuildFactory(factory: unknown, what: string): CompiledShow {
   return compiled
 }
 
+/**
+ * Load a flagship program's compiled show from the @theodoor/programs
+ * registry (exported for the gallery command, which sources several assets
+ * from named programs).
+ */
+export async function loadProgramFromRegistry(id: string): Promise<CompiledShow> {
+  return loadFromRegistry(id)
+}
+
 async function loadFromRegistry(id: string): Promise<CompiledShow> {
   // Computed specifier: tsc never resolves @theodoor/programs' types; the
   // package is looked up at runtime only.

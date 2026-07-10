@@ -12,7 +12,9 @@
     "build": "tsc -b packages/core packages/cli programs && npm run build -w @theodoor/viz",
     "typecheck": "tsc -b packages/core packages/cli programs && tsc --noEmit -p packages/viz",
     "test": "vitest run",
-    "dev": "npm run dev -w @theodoor/viz"
+    "dev": "npm run dev -w @theodoor/viz",
+    "gallery": "tsc -b packages/cli programs && node packages/cli/dist/index.js gallery --out docs/gallery",
+    "gallery:check": "npm run gallery && git diff --exit-code -- docs/gallery"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

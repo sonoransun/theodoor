@@ -11,6 +11,11 @@ site, a noise budget, and a carrier-exposure budget, simulates every star, drone
 crowd cell, and beam deterministically, and emits the paperwork and control files
 a crew would use.
 
+![Animated night-sky loop: a drone orrery holds formation while a shell breaks with its thunder, crowd cells wave in three-four time, and a directional-audio footprint sweeps the lawn](docs/gallery/hero-cosmos-orbit.svg)
+
+*Night of the Spheres, act 2 — every dot sampled from the deterministic 120 Hz sim.
+More in the [gallery](docs/gallery.md).*
+
 > ## Safety & scope
 >
 > - **This is show-design and simulation software.** It designs, validates, simulates,
@@ -70,6 +75,20 @@ node packages/cli/dist/index.js export --show july4 --target firing-script --out
 | [`packages/viz`](packages/viz) | WebGL + WebAudio visualizer (Vite app): renders live sim snapshots and synthesizes the score so you can watch a show land on the beat. |
 | [`programs`](programs) | Flagship show programs — `july4`, `nye`, `hallows`, `cosmos`, `aurora`, `cardstunt`, and their quiet variants — plus shared [palettes](programs/src/palettes.ts). |
 
+```mermaid
+flowchart LR
+  score["Score DSL<br/>(13 pieces)"] --> tl[MusicalTimeline]
+  wav[WAV analysis] --> tl
+  tl --> sb[showBuilder]
+  sb --> cp["compile()<br/>solve + validate"]
+  cp --> cs[CompiledShow]
+  cs --> sim["sim @ 120 Hz"]
+  sim --> viz[WebGL viz]
+  sim --> stats[headless stats]
+  cs --> gate{{"arm gate<br/>DISARMED to LIVE"}}
+  gate --> ex["exporters<br/>CSV / ILDA / Art-Net / waypoints /<br/>crowd frames / beam schedules"]
+```
+
 The keystone of the whole system is one identity, applied everywhere:
 **`fireSec = targetSec − anticipationSec`**. You author *when things should be seen*
 (a shell break on a downbeat, a drone formation fully formed by the chorus); the solver
@@ -81,6 +100,29 @@ the identity: a crowd broadcast is commanded one p95 command latency early so th
 wristband field completes its ramp **on** the beat, and a directional-audio beam is
 fired one acoustic time-of-flight early (`distance / 343 m/s`) so the sound **lands on
 the beat at the listener** — for the everywhere-at-once bell strike, one ToF per cell.
+
+```mermaid
+sequenceDiagram
+  participant A as Author
+  participant S as Solver
+  participant T as Transport
+  participant L as Sky and lawn
+  A->>S: land THIS on the beat (anchor)
+  S->>S: targetSec = resolve(anchor)
+  S->>S: anticipationSec = rise time | morph kinematics | mast p95 | slant / 343
+  S->>T: fireSec = targetSec - anticipationSec
+  T->>L: emit at fireSec
+  L-->>A: lands at targetSec - on the beat
+```
+
+![Chart of cues firing early by medium-specific anticipation so all land on the same beat](docs/gallery/keystone-cosmos-daybreak.svg)
+
+*One beat, four kinds of physics: rise time, morph kinematics, broadcast latency,
+time-of-flight — all solved backward from the same landing.*
+
+![Animated crowd grid raining in over 1.2 seconds and completing on the beat marker](docs/gallery/anim-crowd-ramp-cosmos.svg)
+
+*Commanded one p95 early; ~95% of the field lands exactly on the beat.*
 
 ### Module map (`packages/core/src`)
 
@@ -128,6 +170,16 @@ per-beam delay is the true time-of-flight and crossed pairs image through genuin
 different arrival times — and watch the crowd band beneath the stage light up cell by
 cell. A second HUD meter tracks worst-cell carrier exposure against the budget.
 
+![Top-down venue map with racks, pads, towers, masts, beam arrays, throw arcs, and the 38-by-9 crowd grid](docs/gallery/site-lakeside-park.svg)
+
+*`lakesidePark()`: the demo venue every flagship compiles against, with the six
+beam arrays' horizon-bounded throw arcs.*
+
+![Heatmap of per-cell peak carrier level, all under the 110 dB ceiling](docs/gallery/exposure-hallows.svg)
+
+*Carrier-exposure report for The Unquiet Hour — enforced by `compile()`, never
+opt-in.*
+
 ## Programs
 
 Twelve flagship programs are built on the [`showBuilder`](packages/core/src/show/builder.ts)
@@ -156,6 +208,12 @@ authoring surface:
   tech demo — calibration figures, card-stunt images, and a crowd digit countdown
   racing the drone countdown off the same landings array. The program implementers copy.
 - **`*-quiet`** — every show ships a quiet variant for noise-sensitive audiences.
+
+![Full show timeline with per-lane cues and hatched anticipation lead-ins](docs/gallery/timeline-hallows.svg)
+
+*The Unquiet Hour, all seven lanes; the hatching before each cue body is its
+anticipation. The [gallery](docs/gallery.md) has the NYE quiet-budget chart, the
+formation atlas, and more.*
 
 What makes a quiet variant quiet is enforcement, not taste. A show with
 `variant: 'quiet'` **rejects at validation** any catalog effect louder than 100 dB at
@@ -186,10 +244,13 @@ Everything is deterministic: no wall clock and no ambient randomness anywhere in
 engine (a repo guard test enforces it). Randomness is seeded per cue from the show seed,
 the transport and simulator compute step times by multiplication rather than
 accumulation, and exporters are golden-byte tested — the same show compiles to the same
-bytes, every run, on every machine. The suite is ~1,200 vitest tests under
+bytes, every run, on every machine. The suite is ~1,300 vitest tests under
 [`packages/core/test`](packages/core/test) (plus CLI, viz, and program suites),
-including repo-wide safety-vocabulary and end-to-end determinism guards.
+including repo-wide safety-vocabulary and end-to-end determinism guards. Every
+image in this README is generated by the engine and regenerates byte-identically:
 
 ```sh
 npm test
+npm run gallery        # rewrite docs/gallery/*.svg from the engine
+npm run gallery:check  # fail if the committed assets drifted from the code
 ```

@@ -36,7 +36,11 @@ function walk(dir: string): string[] {
   return out
 }
 
-/** All scanned roots: every packages/*\/src that exists, programs/src, README.md. */
+/**
+ * All scanned roots: every packages/*\/src that exists, programs/src,
+ * README.md, and docs/ (hand-written pages AND the generated gallery SVGs —
+ * rendered surfaces carry the same vocabulary rules as source).
+ */
 function scannedFiles(): string[] {
   const roots: string[] = []
   for (const entry of readdirSync(join(REPO_ROOT, 'packages'), { withFileTypes: true })) {
@@ -45,6 +49,8 @@ function scannedFiles(): string[] {
     if (existsSync(src)) roots.push(src)
   }
   roots.push(PROGRAMS_SRC)
+  const docs = join(REPO_ROOT, 'docs')
+  if (existsSync(docs)) roots.push(docs)
   const files = roots.flatMap((r) => walk(r))
   files.push(join(REPO_ROOT, 'README.md'))
   return files
