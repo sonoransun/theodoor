@@ -26,6 +26,7 @@ import type {
   Vec2,
 } from '../contracts.js'
 import { IMPULSE_WINDOW_SEC, SPL_REF_DISTANCE_M } from '../contracts.js'
+import { fountainBankSpecOf, jetEnvelopes } from '../choreo/generators/fountain.js'
 import { dist2, v2 } from '../math/index.js'
 import { beamAudibleLevelAt, type BeamTargetOpts, type SourceGroundResolver } from './beams.js'
 
@@ -89,15 +90,44 @@ export function isImpulseEffect(effect: EffectDef): boolean {
   return effect.medium === 'pyro' && effect.category === 'salute'
 }
 
+/** Site/grid context that lets the fountain window follow its staggered columns. */
+export interface NoiseWindowCtx {
+  site?: SitePlan
+  beats?: readonly Seconds[]
+}
+
 /**
  * The half-open interval during which a cue emits noise.
  *
  * All media emit at `cue.targetSec` — for pyro that is the burst (the rise is
  * quiet), for other media it is when the effect lands — and last
  * `effect.durationSec`, except impulse sources (salutes, 'impulse'-tagged
- * effects) which last `min(durationSec, IMPULSE_WINDOW_SEC)`.
+ * effects) which last `min(durationSec, IMPULSE_WINDOW_SEC)`. Fountains are
+ * the exception the water forces: pumps are audible from FIRST WATER
+ * (fireSec + the bank's valve latency, i.e. through the rise) until the last
+ * staggered column is dry (targetSec + durationSec + the cascade's stagger),
+ * the same window the sim raises water in — so the quiet budget never
+ * passes an instant the audition would hear running water.
  */
-export function cueNoiseWindow(cue: CompiledCue, effect: EffectDef): NoiseWindow {
+export function cueNoiseWindow(
+  cue: CompiledCue,
+  effect: EffectDef,
+  ctx?: NoiseWindowCtx,
+): NoiseWindow {
+  if (effect.medium === 'fountain') {
+    const asset = ctx?.site?.assets.find((a) => a.id === cue.positionId)
+    const spec = fountainBankSpecOf(asset)
+    let maxDelay = 0
+    if (asset) {
+      for (const j of jetEnvelopes(cue, effect, asset, ctx?.beats ? { beats: ctx.beats } : {})) {
+        if (j.delaySec > maxDelay) maxDelay = j.delaySec
+      }
+    }
+    return {
+      start: cue.fireSec + spec.valveLatencySec,
+      end: cue.targetSec + effect.durationSec + maxDelay,
+    }
+  }
   const dur = isImpulseEffect(effect)
     ? Math.min(effect.durationSec, IMPULSE_WINDOW_SEC)
     : effect.durationSec
@@ -138,10 +168,11 @@ function noiseSources(
   opts?: SplBeamOpts,
 ): NoiseSource[] {
   const out: NoiseSource[] = []
+  const windowCtx: NoiseWindowCtx = { site: compiled.show.site, beats: compiled.show.music.beats }
   for (const cue of compiled.cues) {
     const effect = getEffect(cue.effectId)
     if (!effect) continue
-    const { start, end } = cueNoiseWindow(cue, effect)
+    const { start, end } = cueNoiseWindow(cue, effect, windowCtx)
     if (!(end > start)) continue // zero-length window: half-open ⇒ silent
     const distM = dist2(cueSourcePos(cue, compiled.show.site), listener)
     const src: NoiseSource = {

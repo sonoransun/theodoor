@@ -1,7 +1,8 @@
 /**
  * choreo/ — choreography toolkit: formation point clouds, drone→target
  * assignment, morph planning, deterministic cue generators (pyro / laser /
- * panel), and pure conflict detectors over compiled cues.
+ * panel / crowd / beam), fountain nozzle and searchlight figure geometry,
+ * and pure conflict detectors over compiled cues.
  */
 
 export * from './conflicts.js'
@@ -13,4 +14,6 @@ export * from './generators/laser.js'
 export * from './generators/panel.js'
 export * from './generators/crowd.js'
 export * from './generators/beam.js'
+export * from './generators/fountain.js'
+export * from './generators/searchlight.js'
 export * from './generators/fromEffect.js'

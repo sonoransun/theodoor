@@ -95,6 +95,17 @@ export const PROGRAM_GAIN: Record<VoiceProgram, number> = {
 
 const PROGRAMS: readonly VoiceProgram[] = ['lead', 'brass', 'bass', 'bells', 'perc']
 
+export interface ScoreSynthOptions {
+  /** Output for the musical compressor (the mix bus); defaults to ctx.destination. */
+  out?: AudioNode
+  /** Reverb send input (MixBus.reverb.input) at `sendLevel`; omitted → no send. */
+  reverbSend?: AudioNode | null
+  sendLevel?: number
+}
+
+/** Default score reverb send (the music is already mixed; keep the lawn subtle). */
+export const SCORE_SEND_LEVEL = 0.18
+
 /**
  * Score synthesizer. `anchorSource` is AudioClock.anchor (bound) — the show
  * time ↔ context time mapping owned by the host driver.
@@ -105,12 +116,18 @@ export class ScoreSynth {
   private readonly anchorSource: () => SynthAnchor
   private readonly programGains: Map<VoiceProgram, GainNode> = new Map()
   private readonly compressor: DynamicsCompressorNode
+  private readonly send: GainNode | null
   private readonly active: BuiltVoice[] = []
   private lastScheduled: number
   private intervalId: ReturnType<typeof setInterval> | null = null
   private disposed = false
 
-  constructor(ctx: AudioContext, score: Score, anchorSource: () => SynthAnchor) {
+  constructor(
+    ctx: AudioContext,
+    score: Score,
+    anchorSource: () => SynthAnchor,
+    opts: ScoreSynthOptions = {},
+  ) {
     this.ctx = ctx
     this.notes = precomputeNotes(score)
     this.anchorSource = anchorSource
@@ -120,7 +137,15 @@ export class ScoreSynth {
     this.compressor.threshold.value = -18
     this.compressor.knee.value = 24
     this.compressor.ratio.value = 6
-    this.compressor.connect(ctx.destination)
+    this.compressor.connect(opts.out ?? ctx.destination)
+    if (opts.reverbSend) {
+      this.send = ctx.createGain()
+      this.send.gain.value = opts.sendLevel ?? SCORE_SEND_LEVEL
+      this.compressor.connect(this.send)
+      this.send.connect(opts.reverbSend)
+    } else {
+      this.send = null
+    }
     for (const p of PROGRAMS) {
       const g = ctx.createGain()
       g.gain.value = PROGRAM_GAIN[p]
@@ -200,6 +225,7 @@ export class ScoreSynth {
     this.disposed = true
     for (const g of this.programGains.values()) g.disconnect()
     this.compressor.disconnect()
+    this.send?.disconnect()
   }
 
   /** Drop finished graphs from the registry. */

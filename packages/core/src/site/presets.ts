@@ -3,7 +3,10 @@
  *
  * `lakesidePark()` is the flagship demo venue: an arc of mortar racks on the
  * lake shore firing north-to-south toward an audience 190 m away, a drone pad
- * behind the line, flanking laser towers and pixel panels. All distances
+ * behind the line, flanking laser towers and pixel panels, crowd masts and
+ * directional-audio arrays around the lawn, illuminated fountain banks on the
+ * water behind the racks, and searchlight banks at the ends of the line. All
+ * distances
  * satisfy the separation rule in site/validate.ts for 200 mm shells
  * (0.84 × 200 = 168 m; the audience line sits at 190 m).
  */
@@ -135,6 +138,41 @@ export function lakesidePark(): SitePlan {
       headingDeg: 180,
       elevationM: 8,
       beamArray: { ...beamSpec },
+    })
+  }
+
+  // Illuminated fountain banks on the water just behind the firing line —
+  // two nine-nozzle rows flanking center stage, shooters up to 45 m. The
+  // valve → first-water latency is the fixed part of the fountain
+  // anticipation; the ballistic rise sqrt(2h/g) is the rest.
+  for (const side of [-1, 1] as const) {
+    assets.push({
+      id: side < 0 ? 'fount-west' : 'fount-east',
+      kind: 'fountainBank',
+      pos: v2(48 * side, 14),
+      headingDeg: 0,
+      elevationM: 0,
+      fountainBank: { nozzles: 9, spanM: 32, maxHeightM: 45, valveLatencySec: 0.15 },
+    })
+  }
+
+  // Moving-head searchlight banks at the far ends of the firing line — four
+  // heads each, so converging figures meet high over center stage. Slew is
+  // the anticipation; the elevation floor keeps beams out of the crowd's eyes.
+  for (const side of [-1, 1] as const) {
+    assets.push({
+      id: side < 0 ? 'lights-west' : 'lights-east',
+      kind: 'searchlightBank',
+      pos: v2(130 * side, -4),
+      headingDeg: 0,
+      elevationM: 1.5,
+      searchlightBank: {
+        heads: 4,
+        spanM: 18,
+        slewRateDegPerSec: 60,
+        maxTiltDeg: 75,
+        minElevationDeg: 20,
+      },
     })
   }
 

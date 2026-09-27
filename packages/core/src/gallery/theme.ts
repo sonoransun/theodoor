@@ -4,8 +4,8 @@
  *
  * These are the visualizer's conventions ported to SVG: the night-sky
  * backdrop gradient, the per-lane medium colors from the viz timeline, and
- * the annotation accents — plus two lanes the viz never charts (crowd,
- * beams). Hardcoded here on purpose: core cannot depend on the programs
+ * the annotation accents — plus the audience and water/light lanes (crowd,
+ * beams, fountains, searchlights). Hardcoded here on purpose: core cannot depend on the programs
  * package, and generated images must never inherit `currentColor` (GitHub
  * renders repo SVGs inside <img>, where currentColor resolves to black) —
  * every gallery element passes explicit colors from this table.
@@ -28,6 +28,8 @@ export const GALLERY_THEME = {
     music: '#ffd24d',
     crowd: '#ffe08a',
     beams: '#5ee6d0',
+    fountains: '#5aa9ff',
+    lights: '#f3e6a8',
   },
   hit: '#ffd24d',
   climax: '#ff5252',
@@ -57,6 +59,10 @@ export function laneColorFor(medium: string): string {
       return GALLERY_THEME.lanes.crowd
     case 'beam':
       return GALLERY_THEME.lanes.beams
+    case 'fountain':
+      return GALLERY_THEME.lanes.fountains
+    case 'searchlight':
+      return GALLERY_THEME.lanes.lights
     default:
       return GALLERY_THEME.ink
   }

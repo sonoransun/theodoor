@@ -28,6 +28,8 @@
  *   'beam-focus'      aim or covered crowd cell nearer than the min focus
  *                     slant at either end of the active window
  *   'beam-pair'       pairId group without exactly 2 members, or split targets (warning)
+ *   'fountain-*'      fountain-bank rules (site/rules/fountain.ts)
+ *   'light-*'         searchlight-bank rules (site/rules/searchlight.ts)
  */
 import { DRONE_BASE_ALTITUDE_M, SPEED_OF_SOUND_MPS } from '../contracts.js'
 import { formationFromEffect } from '../choreo/index.js'
@@ -39,6 +41,8 @@ import {
   inFootprint,
 } from '../acoustics/beams.js'
 import { coveredCellIndices, crowdGridFor } from './crowdGrid.js'
+import { fountainRules } from './rules/fountain.js'
+import { searchlightRules } from './rules/searchlight.js'
 import type {
   BeamFootprint,
   CompiledCue,
@@ -582,4 +586,8 @@ function runRules(
       }
     }
   }
+
+  // --- fountain banks + searchlight banks (own rule files) -------------------
+  fountainRules(site, cues, getEffect, out)
+  searchlightRules(site, cues, beats, getEffect, out)
 }

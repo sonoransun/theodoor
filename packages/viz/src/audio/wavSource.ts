@@ -84,12 +84,12 @@ export class WavPlayer {
   private readonly gain: GainNode
   private source: AudioBufferSourceNode | null = null
 
-  constructor(ctx: AudioContext, buffer: AudioBuffer) {
+  constructor(ctx: AudioContext, buffer: AudioBuffer, out: AudioNode = ctx.destination) {
     this.ctx = ctx
     this.buffer = buffer
     this.gain = ctx.createGain()
     this.gain.gain.value = 0.9
-    this.gain.connect(ctx.destination)
+    this.gain.connect(out)
   }
 
   /** Recreate/stop the source so playback matches the anchor. */

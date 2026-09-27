@@ -25,6 +25,12 @@ const EXPECTED_IDS = [
   'spl-nye-vs-quiet',
   'formations',
   'beam-footprint-geometry',
+  'hero-vltava-broad-river',
+  'scene-vltava-moonlight',
+  'keystone-vltava-broad-river',
+  'timeline-vltava',
+  'physics-fountain-rise',
+  'physics-searchlight-slew',
   'scene-hallows-summit',
   'anim-drone-morph-cosmos',
   'anim-beam-flyover-hallows',
@@ -33,6 +39,7 @@ const EXPECTED_IDS = [
 
 const ANIMATED_IDS = new Set([
   'hero-cosmos-orbit',
+  'hero-vltava-broad-river',
   'anim-crowd-ramp-cosmos',
   'anim-drone-morph-cosmos',
   'anim-beam-flyover-hallows',

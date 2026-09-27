@@ -30,6 +30,7 @@ import {
   formationFromEffect,
   formationMorphSvg,
   formationSheetSvg,
+  fountainRiseSvg,
   getEffectFrom,
   keystoneChartSvg,
   latencyQuantileMs,
@@ -40,6 +41,7 @@ import {
   rackPlan,
   rackSvg,
   sampleFrames,
+  searchlightSlewSvg,
   sitePlanSvg,
   skyLoopSvg,
   skySceneSvg,
@@ -47,6 +49,9 @@ import {
   splTimeline,
   starterCatalog,
   timelineSvg,
+  type FountainBankSpec,
+  type FountainEffect,
+  type SearchlightBankSpec,
   type SkyBurst,
   type TimelineBand,
 } from '@theodoor/core'
@@ -308,6 +313,115 @@ export const GALLERY_ASSETS: readonly GalleryAsset[] = [
       const grid = crowdGridFor(site)!
       const target = grid.cells.find((c) => c.row === 4 && c.col === 19)!.centroid
       return beamGeometrySvg(asset, effect, target)
+    },
+  },
+  {
+    id: 'hero-vltava-broad-river',
+    title: 'Vltava — the broad river: brocades, thunder, nine shooters, pillars, bloom',
+    kind: 'animated',
+    programId: 'vltava',
+    render: (ctx) => {
+      const climax = annotationTime(ctx.compiled, 'climax', undefined, 'strongest')
+      // Open one second before the landing: shooters two-thirds up, brocade
+      // tracers near apogee — a static frame already reads as "about to land".
+      const fromSec = climax - 1
+      const toSec = fromSec + 14
+      const frames = sampleFrames(ctx.compiled, { fromSec, toSec, fps: 4, getEffect: ctx.getEffect })
+      return skyLoopSvg(frames, ctx.site, {
+        loopDurSec: 14,
+        bursts: burstsInWindow(ctx, fromSec, toSec),
+        droneMax: 120,
+        title: 'Vltava — the broad river: water, light, thunder and gold land on one beat',
+      })
+    },
+  },
+  {
+    id: 'scene-vltava-moonlight',
+    title: 'Vltava — moonlight: the spire, the crescent, a nymph shooter at its crest',
+    kind: 'static',
+    programId: 'vltava',
+    render: (ctx) => {
+      const moonlight = annotationTime(ctx.compiled, 'accent', 'moonlight')
+      const frame = sampleFrames(ctx.compiled, {
+        fromSec: moonlight + 0.5,
+        toSec: moonlight + 0.5,
+        fps: 4,
+        getEffect: ctx.getEffect,
+      })[0]!
+      return skySceneSvg(frame, ctx.site, {
+        starMax: 300,
+        title: 'Vltava at moonlight — the converging spire, the crescent, and a 45 m shooter cresting on the nymph',
+      })
+    },
+  },
+  {
+    id: 'keystone-vltava-broad-river',
+    title: 'The keystone identity — one landing, six kinds of physics',
+    kind: 'static',
+    programId: 'vltava',
+    render: (ctx) => {
+      const climax = annotationTime(ctx.compiled, 'climax', undefined, 'strongest')
+      const castle = annotationTime(ctx.compiled, 'accent', 'vysehrad')
+      const rows = [
+        { cueId: 'broad-bloom', note: 'drone morph kinematics' },
+        { cueId: 'broad-brocade-0', note: 'shell rise time' },
+        { cueId: 'broad-shooters-000', note: 'valve latency + water rise' },
+        { cueId: cueByPrefix(ctx.compiled, 'thunder-broad-brocade-0').id, note: 'acoustic time-of-flight' },
+        { cueId: 'broad-flood-mast-west', note: 'broadcast p95 latency' },
+        { cueId: 'broad-pillars-000', note: 'heads already vertical: no slew' },
+        { cueId: cueByPrefix(ctx.compiled, 'castle-spire-1').id, note: 'head slew, landing on the castle' },
+      ]
+      return keystoneChartSvg(ctx.compiled, {
+        rows,
+        fromSec: Math.floor(climax) - 16,
+        toSec: Math.ceil(castle) + 3,
+        ruleAt: { tSec: climax, label: 'the broad river' },
+        callout: { text: 'same targetSec - six different fireSec', atRowOfCueId: 'broad-brocade-0' },
+        title: 'fireSec = targetSec − anticipationSec — six media, one landing',
+      })
+    },
+  },
+  {
+    id: 'timeline-vltava',
+    title: 'Vltava — full-show timeline, all nine lanes',
+    kind: 'static',
+    programId: 'vltava',
+    render: (ctx) => {
+      // Short acts crowd the band header: label by the act numeral only.
+      const bands: TimelineBand[] = (ctx.compiled.acts ?? []).map((a) => ({
+        label: a.title.split(' — ')[0] ?? a.title,
+        fromSec: a.fromSec,
+        toSec: a.toSec,
+      }))
+      return timelineSvg(ctx.compiled, { bands })
+    },
+  },
+  {
+    id: 'physics-fountain-rise',
+    title: 'Fountain anticipation — valve latency plus the ballistic rise',
+    kind: 'static',
+    render: () => {
+      const site = lakesidePark()
+      const bank = site.assets.find((a) => a.id === 'fount-west')?.fountainBank as FountainBankSpec | undefined
+      if (!bank) throw new UsageError('gallery: lakesidePark has no fount-west bank')
+      const shooter = getEffectFrom(starterCatalog())('fountain-shooter-45m') as FountainEffect | undefined
+      if (!shooter || shooter.medium !== 'fountain') {
+        throw new UsageError('gallery: fountain-shooter-45m missing from the catalog')
+      }
+      return fountainRiseSvg(shooter, bank, {
+        title: 'Sky Shooter 45 m — the column crests on the beat',
+      })
+    },
+  },
+  {
+    id: 'physics-searchlight-slew',
+    title: 'Searchlight anticipation — head slew solved from the previous aim',
+    kind: 'static',
+    render: () => {
+      const site = lakesidePark()
+      const bank = site.assets.find((a) => a.id === 'lights-west')?.searchlightBank as SearchlightBankSpec | undefined
+      if (!bank) throw new UsageError('gallery: lakesidePark has no lights-west bank')
+      return searchlightSlewSvg(bank)
     },
   },
   {

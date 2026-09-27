@@ -6,9 +6,10 @@
  * is given — the quiet-report pass/fail (a failing budget exits 1; findings
  * are still printed).
  *
- * Crowd/beam extensions: shows with crowd or beam cues also run a headless
- * sim to report peakCrowdCellsLit, peakActiveBeams, and
- * beamLandingErrorSecMax (printed only when nonzero). --exposure runs the
+ * Sim extensions: shows with crowd, beam, fountain, or searchlight cues also
+ * run a headless sim to report peakCrowdCellsLit, peakActiveBeams,
+ * beamLandingErrorSecMax, peakActiveJets, peakActiveLights, and
+ * fountainCrestErrorSecMax (printed only when nonzero). --exposure runs the
  * carrier-exposure sweep and prints the top 10 worst cells (peak carrier dB,
  * dwell seconds) plus a PASS/FAIL line; like the quiet budget, a FAIL exits
  * 1. In --json mode --exposure embeds the full ExposureReport.
@@ -69,10 +70,17 @@ export async function runStats(flags: CliFlags): Promise<number> {
       ? quietReport(compiled, getEffect, flags.quietBudgetDb)
       : undefined
 
-  // Crowd/beam sim stats exist only for shows that use those media; other
-  // shows skip the headless run entirely (all three fields would be zero).
-  const hasCrowdOrBeam = compiled.cues.some((c) => c.medium === 'crowd' || c.medium === 'beam')
-  const sim: SimStats | undefined = hasCrowdOrBeam
+  // Crowd/beam/fountain/searchlight sim stats exist only for shows that use
+  // those media; other shows skip the headless run entirely (every one of
+  // those fields would be zero).
+  const hasSimMedia = compiled.cues.some(
+    (c) =>
+      c.medium === 'crowd' ||
+      c.medium === 'beam' ||
+      c.medium === 'fountain' ||
+      c.medium === 'searchlight',
+  )
+  const sim: SimStats | undefined = hasSimMedia
     ? runHeadless(compiled, { getEffect }).stats
     : undefined
 
@@ -97,6 +105,10 @@ export async function runStats(flags: CliFlags): Promise<number> {
             peakCrowdCellsLit: sim.peakCrowdCellsLit,
             peakActiveBeams: sim.peakActiveBeams,
             beamLandingErrorSecMax: sim.beamLandingErrorSecMax,
+            peakActiveJets: sim.peakActiveJets,
+            peakActiveLights: sim.peakActiveLights,
+            lightArrivalLagSecMax: sim.lightArrivalLagSecMax,
+            fountainCrestErrorSecMax: sim.fountainCrestErrorSecMax,
           }
         : {}),
       ...(exposure !== undefined ? { exposure } : {}),
@@ -137,6 +149,18 @@ export async function runStats(flags: CliFlags): Promise<number> {
       }
       if (sim.beamLandingErrorSecMax > 0) {
         lines.push(`  beam landing error: ${sim.beamLandingErrorSecMax.toFixed(3)} s max`)
+      }
+      if (sim.peakActiveJets > 0) {
+        lines.push(`  water columns:      ${sim.peakActiveJets} peak`)
+      }
+      if (sim.peakActiveLights > 0) {
+        lines.push(`  searchlight heads:  ${sim.peakActiveLights} peak`)
+      }
+      if (sim.fountainCrestErrorSecMax > 0) {
+        lines.push(`  crest timing error: ${sim.fountainCrestErrorSecMax.toFixed(3)} s max`)
+      }
+      if (sim.lightArrivalLagSecMax > 0) {
+        lines.push(`  light arrival lag:  ${sim.lightArrivalLagSecMax.toFixed(3)} s max`)
       }
     }
     if (quiet !== undefined) {

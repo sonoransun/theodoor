@@ -10,7 +10,7 @@
  * or copy).
  */
 
-import type { BeamState, LaserPoint, Seconds, SimSnapshot } from '../contracts.js'
+import type { BeamState, JetState, LaserPoint, LightState, Seconds, SimSnapshot } from '../contracts.js'
 
 const INITIAL_STARS = 256
 const INITIAL_SHELLS = 16
@@ -41,6 +41,7 @@ export class SimBuffers {
 
   starCount = 0
   starPos = new Float32Array(INITIAL_STARS * 3)
+  starVel = new Float32Array(INITIAL_STARS * 3)
   starRgb = new Float32Array(INITIAL_STARS * 3)
   starBrightness = new Float32Array(INITIAL_STARS)
   starSizeM = new Float32Array(INITIAL_STARS)
@@ -65,6 +66,8 @@ export class SimBuffers {
   crowdRgb = new Float32Array(0)
   crowdWhite = new Float32Array(0)
   beams: BeamState[] = []
+  jets: JetState[] = []
+  lights: LightState[] = []
 
   /** Size the crowd arrays once per show (cell count is constant). */
   setCrowdCellCount(n: number): void {
@@ -86,21 +89,28 @@ export class SimBuffers {
     this.crowdRgb.fill(0)
     this.crowdWhite.fill(0)
     this.beams = []
+    this.jets = []
+    this.lights = []
   }
 
   pushStar(
     x: number, y: number, z: number,
     r: number, g: number, b: number,
     brightness: number, sizeM: number,
+    vx = 0, vy = 0, vz = 0,
   ): void {
     const i = this.starCount
     this.starPos = growF32(this.starPos, (i + 1) * 3)
+    this.starVel = growF32(this.starVel, (i + 1) * 3)
     this.starRgb = growF32(this.starRgb, (i + 1) * 3)
     this.starBrightness = growF32(this.starBrightness, i + 1)
     this.starSizeM = growF32(this.starSizeM, i + 1)
     this.starPos[i * 3] = x
     this.starPos[i * 3 + 1] = y
     this.starPos[i * 3 + 2] = z
+    this.starVel[i * 3] = vx
+    this.starVel[i * 3 + 1] = vy
+    this.starVel[i * 3 + 2] = vz
     this.starRgb[i * 3] = r
     this.starRgb[i * 3 + 1] = g
     this.starRgb[i * 3 + 2] = b
@@ -154,6 +164,7 @@ export class SimBuffers {
       stars: {
         count: this.starCount,
         pos: this.starPos.subarray(0, this.starCount * 3),
+        vel: this.starVel.subarray(0, this.starCount * 3),
         rgb: this.starRgb.subarray(0, this.starCount * 3),
         brightness: this.starBrightness.subarray(0, this.starCount),
         sizeM: this.starSizeM.subarray(0, this.starCount),
@@ -173,6 +184,8 @@ export class SimBuffers {
         white: this.crowdWhite.subarray(0, this.crowdCellCount),
       },
       beams: this.beams,
+      jets: this.jets,
+      lights: this.lights,
       splByListener: this.splByListener,
     }
   }

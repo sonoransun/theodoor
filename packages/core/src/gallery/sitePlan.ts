@@ -95,6 +95,32 @@ function assetGlyph(a: PositionedAsset, proj: MapProj): string {
       )
       labelDy = 13
       break
+    case 'fountainBank': {
+      // Nozzle row: a bar with three droplet ticks.
+      const half = Math.max(6, ((a.fountainBank?.spanM ?? 12) * proj.s) / 2)
+      parts.push(
+        el('line', { x1: px - half, y1: py, x2: px + half, y2: py, stroke: t.lanes.fountains, 'stroke-width': 2 }),
+      )
+      for (const dx of [-half * 0.6, 0, half * 0.6]) {
+        parts.push(el('circle', { cx: px + dx, cy: py - 4, r: 1.8, fill: t.lanes.fountains }))
+      }
+      labelDy = -10
+      break
+    }
+    case 'searchlightBank': {
+      // Head row: a bar with short rays.
+      const half = Math.max(6, ((a.searchlightBank?.spanM ?? 12) * proj.s) / 2)
+      parts.push(
+        el('line', { x1: px - half, y1: py, x2: px + half, y2: py, stroke: t.lanes.lights, 'stroke-width': 2 }),
+      )
+      for (const dx of [-half * 0.66, -half * 0.22, half * 0.22, half * 0.66]) {
+        parts.push(
+          el('line', { x1: px + dx, y1: py, x2: px + dx, y2: py - 7, stroke: t.lanes.lights, 'stroke-width': 1.2 }),
+        )
+      }
+      labelDy = 13
+      break
+    }
   }
   parts.push(
     el(

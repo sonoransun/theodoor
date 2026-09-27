@@ -21,7 +21,7 @@
  * closed-form glyphs (seeded spoke rosettes), never per-star markup.
  */
 
-import type { BeamState, SitePlan } from '../contracts.js'
+import type { BeamState, JetState, LightState, SitePlan } from '../contracts.js'
 import { el, fmtMm, type SvgAttrValue } from '../fab/svg.js'
 import { rgbToHex } from '../math/color.js'
 import { mulberry32 } from '../math/index.js'
@@ -42,6 +42,10 @@ const SKY_HOLD_FRAC = 0.06
 const BEAM_OPACITY_OFF = '0'
 const BEAM_OPACITY_AIRBORNE = '0.4'
 const BEAM_OPACITY_LANDED = '0.9'
+/** Searchlight beams draw at this length fraction of their reach (the sky panel is short). */
+const LIGHT_DRAW_FRACTION = 0.45
+/** Searchlight stroke opacity scale. */
+const LIGHT_OPACITY = 0.55
 
 /** Lawn-band geometry derived from the site's crowd grid + audience zone. */
 interface LawnBand {
@@ -105,6 +109,61 @@ function beamEllipseGeom(
     rx: b.footprint.a * proj.pxPerMx,
     ry: b.footprint.b * (band.hPx / band.depthM),
   }
+}
+
+/** Columns wider than this (mist screens) draw as soft bands, not strokes. */
+const JET_BAND_MIN_WIDTH_M = 2.5
+
+/** One water column as a lit stroke from nozzle to crest (front view); wide mist as a band. */
+function jetGlyph(j: JetState, proj: SkyProjection): string {
+  if (!(j.heightM > 0)) return ''
+  const x0 = proj.toX(j.base.x)
+  const y0 = proj.toY(j.base.z)
+  if (j.widthM >= JET_BAND_MIN_WIDTH_M) {
+    const wPx = j.widthM * proj.pxPerMx
+    const hPx = Math.max(1, j.heightM * proj.pxPerMz)
+    return el('rect', {
+      x: x0 - wPx / 2,
+      y: y0 - hPx,
+      width: wPx,
+      height: hPx,
+      rx: 2,
+      fill: rgbToHex(j.r, j.g, j.b),
+      'fill-opacity': j.crested ? 0.35 : 0.2,
+    })
+  }
+  const x1 = proj.toX(j.base.x + j.tipDx)
+  const y1 = proj.toY(j.base.z + j.heightM)
+  return el('line', {
+    x1: x0,
+    y1: y0,
+    x2: x1,
+    y2: y1,
+    stroke: rgbToHex(j.r, j.g, j.b),
+    'stroke-width': Math.max(1.2, Math.min(j.widthM, 2) * proj.pxPerMx),
+    'stroke-linecap': 'round',
+    'stroke-opacity': j.crested ? 0.9 : 0.6,
+  })
+}
+
+/** One searchlight head as a beam stroke fading along its length (front view). */
+function lightGlyph(l: LightState, proj: SkyProjection): string {
+  if (!(l.intensity > 0.01)) return ''
+  const len = l.reachM * LIGHT_DRAW_FRACTION
+  const x0 = proj.toX(l.base.x)
+  const y0 = proj.toY(l.base.z)
+  const x1 = proj.toX(l.base.x + l.dir.x * len)
+  const y1 = proj.toY(l.base.z + l.dir.z * len)
+  return el('line', {
+    x1: x0,
+    y1: y0,
+    x2: x1,
+    y2: y1,
+    stroke: rgbToHex(l.r, l.g, l.b),
+    'stroke-width': 2.5 + Math.min(2, l.halfAngleDeg),
+    'stroke-linecap': 'round',
+    'stroke-opacity': LIGHT_OPACITY * l.intensity * (l.slewing ? 0.7 : 1),
+  })
 }
 
 export interface SkySceneOpts {
@@ -187,6 +246,11 @@ export function skySceneSvg(frame: GalleryFrame, site: SitePlan, opts: SkySceneO
   }
   children.push(el('g', {}, drones.join('')))
 
+  // Searchlight beams (tapering strokes from the head) under the water.
+  children.push(el('g', {}, frame.lights.map((l) => lightGlyph(l, proj)).join('')))
+  // Water columns: a lit line from the nozzle to the crest, width = column width.
+  children.push(el('g', {}, frame.jets.map((j) => jetGlyph(j, proj)).join('')))
+
   const band = lawnBandFor(site, proj, groundY + BAND_GAP_PX, BAND_H_PX)
   if (band !== undefined) {
     const parts: string[] = [
@@ -217,7 +281,7 @@ export function skySceneSvg(frame: GalleryFrame, site: SitePlan, opts: SkySceneO
     h,
     {
       title: opts.title ?? `sky scene at ${fmtSmilSec(frame.t)}s`,
-      desc: 'front view: pyro stars and drones over the ground line, lawn band with crowd cells and beam footprints below',
+      desc: 'front view: pyro stars, drones, searchlight beams and water columns over the ground line, lawn band with crowd cells and beam footprints below',
     },
     children,
   )
@@ -476,6 +540,109 @@ export function skyLoopSvg(frames: readonly GalleryFrame[], site: SitePlan, opts
   }
   children.push(el('g', {}, droneParts.join('')))
 
+  // --- Searchlight heads: one line per (cue, head), tip + opacity animated. --
+  {
+    const keys: string[] = []
+    const first = new Map<string, LightState>()
+    for (const f of frames) {
+      for (const l of f.lights) {
+        const k = `${l.cueIdx}:${l.head}`
+        if (!first.has(k)) {
+          keys.push(k)
+          first.set(k, l)
+        }
+      }
+    }
+    const lightParts: string[] = []
+    for (const k of keys) {
+      const l0 = first.get(k)!
+      const len = l0.reachM * LIGHT_DRAW_FRACTION
+      const x2s: string[] = []
+      const y2s: string[] = []
+      const ops: string[] = []
+      let last = l0
+      for (const f of frames) {
+        const l = f.lights.find((s) => s.cueIdx === l0.cueIdx && s.head === l0.head)
+        if (l !== undefined) last = l
+        x2s.push(fmtMm(proj.toX(last.base.x + last.dir.x * len)))
+        y2s.push(fmtMm(proj.toY(last.base.z + last.dir.z * len)))
+        ops.push(l === undefined ? '0' : fmtMm(LIGHT_OPACITY * l.intensity * (l.slewing ? 0.7 : 1)))
+      }
+      lightParts.push(
+        el(
+          'line',
+          {
+            x1: proj.toX(l0.base.x),
+            y1: proj.toY(l0.base.z),
+            x2: Number(x2s[0]),
+            y2: Number(y2s[0]),
+            stroke: rgbToHex(l0.r, l0.g, l0.b),
+            'stroke-width': 2.5,
+            'stroke-linecap': 'round',
+            opacity: 0,
+          },
+          animate('x2', { values: [...x2s, x2s[F - 1]!], durSec: dur, keyTimes }) +
+            animate('y2', { values: [...y2s, y2s[F - 1]!], durSec: dur, keyTimes }) +
+            animate('opacity', { values: [...ops, ops[F - 1]!], durSec: dur, keyTimes }),
+        ),
+      )
+    }
+    children.push(el('g', {}, lightParts.join('')))
+  }
+
+  // --- Water columns: one line per (cue, nozzle), crest height animated. -----
+  {
+    const keys: string[] = []
+    const first = new Map<string, JetState>()
+    for (const f of frames) {
+      for (const j of f.jets) {
+        const k = `${j.cueIdx}:${j.nozzle}`
+        if (!first.has(k)) {
+          keys.push(k)
+          first.set(k, j)
+        }
+      }
+    }
+    const jetParts: string[] = []
+    for (const k of keys) {
+      const j0 = first.get(k)!
+      const x2s: string[] = []
+      const y2s: string[] = []
+      const ops: string[] = []
+      for (const f of frames) {
+        const j = f.jets.find((s) => s.cueIdx === j0.cueIdx && s.nozzle === j0.nozzle)
+        const h = j?.heightM ?? 0
+        x2s.push(fmtMm(proj.toX(j0.base.x + (j?.tipDx ?? 0))))
+        y2s.push(fmtMm(proj.toY(j0.base.z + h)))
+        ops.push(j === undefined || !(h > 0) ? '0' : j.crested ? '0.9' : '0.6')
+      }
+      jetParts.push(
+        el(
+          'line',
+          {
+            x1: proj.toX(j0.base.x),
+            y1: proj.toY(j0.base.z),
+            x2: Number(x2s[0]),
+            y2: Number(y2s[0]),
+            stroke: rgbToHex(j0.r, j0.g, j0.b),
+            'stroke-width': Math.max(1.2, j0.widthM * proj.pxPerMx),
+            'stroke-linecap': 'round',
+            opacity: 0,
+          },
+          animate('x2', { values: [...x2s, x2s[F - 1]!], durSec: dur, keyTimes }) +
+            animate('y2', { values: [...y2s, y2s[F - 1]!], durSec: dur, keyTimes }) +
+            animate('opacity', {
+              values: [...ops, ops[F - 1]!],
+              durSec: dur,
+              keyTimes,
+              calcMode: 'discrete',
+            }),
+        ),
+      )
+    }
+    children.push(el('g', {}, jetParts.join('')))
+  }
+
   // --- Pyro layer: closed-form rosette glyphs. ------------------------------
   for (const b of opts.bursts ?? []) children.push(burstGlyph(b, proj, dur))
 
@@ -484,7 +651,7 @@ export function skyLoopSvg(frames: readonly GalleryFrame[], site: SitePlan, opts
     h,
     {
       title: opts.title ?? 'sky loop',
-      desc: `${F} frames over a ${fmtSmilSec(dur)}s loop: drones, crowd band, beam footprints, rosette glyphs`,
+      desc: `${F} frames over a ${fmtSmilSec(dur)}s loop: drones, searchlights, water columns, crowd band, beam footprints, rosette glyphs`,
     },
     children,
   )

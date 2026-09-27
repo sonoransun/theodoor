@@ -519,6 +519,60 @@ function dawnBanishing(b: ShowBuilder, m: MusicRefs): void {
   })
 }
 
+/**
+ * Program notes (the printed program), shared by both variants: four acts on
+ * the suite's own marks — the danse, the first Mountain King statement, and
+ * the first cock-crow of the dawn coda.
+ */
+function programNotes(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
+  b.notes({
+    tagline: quiet
+      ? 'The haunting arrives through sound before anything is seen — the quiet performance: the same ghosts, softer thunder.'
+      : 'The haunting arrives through sound before anything is seen.',
+    music: [
+      'Camille Saint-Saëns — Danse Macabre (1874)',
+      'Edvard Grieg — In the Hall of the Mountain King (1875)',
+      'Theodoor — Dawn of All Saints (original coda)',
+    ],
+    epilogue: 'Twelve strokes, one heartbeat, and a dawn.',
+  })
+  b.act(
+    'I — The Summoning',
+    m.time(0),
+    'Eyes blink open on the panels in the dark. Then midnight tolls twelve times — not from a ' +
+      'speaker but from the directional arrays, each stroke sent early by the time sound needs ' +
+      'to cross the lawn, so every seat hears the bell at the same instant; the lawn glows ' +
+      'bone-white half a beat behind each stroke. Whispers walk the front corners while the ' +
+      'fiddler tunes, and three invisible whooshes fly over you on the tritones. On the third, ' +
+      'look up: the bats are where the sound went.',
+  )
+  b.act(
+    'II — The Dance',
+    m.annotation('accent', 0, 'danse'),
+    'An eighty-drone ghost rises over the display and moans from where it hangs — crossed audio ' +
+      'beds place the sound at the spot in the sky it occupies. The waltz keeps time as a wave ' +
+      'across your wristbands; green and violet volleys ride the phrase ends; laughter ' +
+      'ping-pongs between two corner seats. On the bones theme, a violet web of laser light and ' +
+      'ember panels.',
+  )
+  b.act(
+    'III — The Chase',
+    m.annotation('accent', 0, 'creep'),
+    'The Mountain King begins as a heartbeat in the front-centre cell and spreads through the ' +
+      'crowd, redder and stronger with every statement, until every wrist pounds on the frenzy. ' +
+      'Eight hammer stomps land on the outer racks with lightning on the panels and rings ' +
+      'through the lawn. The summit takes a 25-second barrage; the crowd spells BOO; the ghost ' +
+      'blooms apart.',
+  )
+  b.act(
+    'IV — Dawn',
+    m.hit('cockcrow', 0),
+    'Three cock-crows send the spirits back the way they came — the flyovers reverse. Warm ' +
+      'light floods the lawn, willows hang at daybreak, and the last bell tolls everywhere at ' +
+      'once into a single blink where the plague began. Then blackout.',
+  )
+}
+
 /** Everything both variants share (all of it is quiet-legal). */
 function sharedShow(b: ShowBuilder, m: MusicRefs): void {
   eyesInTheDark(b, m)
@@ -595,6 +649,7 @@ export function hallows(): BuildResult {
     .preRoll(PRE_ROLL_SEC)
     .quantize('none')
 
+  programNotes(b, m, false)
   sharedShow(b, m)
 
   // --- ACT 2: green/violet volleys + the sabbath peak -----------------------
@@ -666,6 +721,7 @@ export function hallowsQuiet(): BuildResult {
     .quantize('none')
     .noiseBudget(85)
 
+  programNotes(b, m, true)
   sharedShow(b, m)
 
   // --- ACT 2: low-noise mines/comets take the waltz landings ----------------

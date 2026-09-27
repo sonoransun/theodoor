@@ -11,6 +11,7 @@
  */
 
 import type { EffectDef, Medium, Seconds } from '../contracts.js'
+import { GRAVITY_MPS2 } from '../contracts.js'
 
 /** Filter for {@link Catalog.query}. All fields optional; conditions AND. */
 export interface CatalogQuery {
@@ -47,6 +48,15 @@ export const FABRICATION_ANTICIPATION_SEC: Seconds = 0.1
  * - beam:        0 here — placeholder like drone: the solver derives the real
  *                anticipation from the acoustic time-of-flight between the
  *                array asset and the cue's target cell.
+ * - fountain:    0 here — placeholder like drone: the solver derives the real
+ *                anticipation from the bank's valve latency plus the column's
+ *                ballistic rise {@link fountainRiseSec}(crest) (mist stretched,
+ *                params.heightM honored) — sim/fountains fountainAnticipationSec
+ *                is the single owner, so the catalog never disagrees with a
+ *                compiled cue.
+ * - searchlight: 0 here — placeholder like drone: the solver derives the real
+ *                anticipation from the bank's head slew between consecutive
+ *                figures (sim/lights deriveLightChains).
  */
 export function anticipationSec(effect: EffectDef): Seconds {
   switch (effect.medium) {
@@ -59,8 +69,15 @@ export function anticipationSec(effect: EffectDef): Seconds {
     case 'panel':
     case 'crowd':
     case 'beam':
+    case 'fountain':
+    case 'searchlight':
       return 0
   }
+}
+
+/** Ballistic rise time of a water column to crest height h: sqrt(2h / g). */
+export function fountainRiseSec(heightM: number): Seconds {
+  return Math.sqrt((2 * Math.max(0, heightM)) / GRAVITY_MPS2)
 }
 
 /** Collect human-readable range violations for one effect definition. */
@@ -125,6 +142,33 @@ function defProblems(def: EffectDef): string[] {
       }
       if (!(def.maxCarrierDbAtFocus <= 120)) {
         p.push(`${at}: maxCarrierDbAtFocus must be <= 120, got ${def.maxCarrierDbAtFocus}`)
+      }
+      break
+    }
+    case 'fountain': {
+      if (!(def.heightM > 0 && def.heightM <= 120)) {
+        p.push(`${at}: heightM must be in (0, 120], got ${def.heightM}`)
+      }
+      if (!(Number.isInteger(def.nozzles) && def.nozzles >= 0)) {
+        p.push(`${at}: nozzles must be a non-negative integer, got ${def.nozzles}`)
+      }
+      if (!(def.widthM > 0)) p.push(`${at}: widthM must be > 0, got ${def.widthM}`)
+      if (def.colors.length === 0) p.push(`${at}: fountain jets need at least one lighting color`)
+      if (!(def.noiseDbAt15m <= 90)) {
+        p.push(`${at}: fountain water noise (noiseDbAt15m) must be <= 90, got ${def.noiseDbAt15m}`)
+      }
+      break
+    }
+    case 'searchlight': {
+      if (!(def.beamWidthDeg >= 0.5 && def.beamWidthDeg <= 8)) {
+        p.push(`${at}: beamWidthDeg must be in [0.5, 8], got ${def.beamWidthDeg}`)
+      }
+      if (!(def.reachM >= 50 && def.reachM <= 2000)) {
+        p.push(`${at}: reachM must be in [50, 2000], got ${def.reachM}`)
+      }
+      if (def.colors.length === 0) p.push(`${at}: searchlight figures need at least one color`)
+      if (!(def.noiseDbAt15m <= 70)) {
+        p.push(`${at}: searchlight fan noise (noiseDbAt15m) must be <= 70, got ${def.noiseDbAt15m}`)
       }
       break
     }

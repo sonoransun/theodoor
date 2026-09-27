@@ -54,6 +54,42 @@
   "kind": "static"
  },
  {
+  "id": "hero-vltava-broad-river",
+  "file": "hero-vltava-broad-river.svg",
+  "title": "Vltava — the broad river: brocades, thunder, nine shooters, pillars, bloom",
+  "kind": "animated"
+ },
+ {
+  "id": "scene-vltava-moonlight",
+  "file": "scene-vltava-moonlight.svg",
+  "title": "Vltava — moonlight: the spire, the crescent, a nymph shooter at its crest",
+  "kind": "static"
+ },
+ {
+  "id": "keystone-vltava-broad-river",
+  "file": "keystone-vltava-broad-river.svg",
+  "title": "The keystone identity — one landing, six kinds of physics",
+  "kind": "static"
+ },
+ {
+  "id": "timeline-vltava",
+  "file": "timeline-vltava.svg",
+  "title": "Vltava — full-show timeline, all nine lanes",
+  "kind": "static"
+ },
+ {
+  "id": "physics-fountain-rise",
+  "file": "physics-fountain-rise.svg",
+  "title": "Fountain anticipation — valve latency plus the ballistic rise",
+  "kind": "static"
+ },
+ {
+  "id": "physics-searchlight-slew",
+  "file": "physics-searchlight-slew.svg",
+  "title": "Searchlight anticipation — head slew solved from the previous aim",
+  "kind": "static"
+ },
+ {
   "id": "scene-hallows-summit",
   "file": "scene-hallows-summit.svg",
   "title": "The Unquiet Hour — the summit, one sim snapshot",

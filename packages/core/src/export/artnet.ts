@@ -16,7 +16,7 @@
  *   off 18..   : channel data, zero-padded to even length
  */
 
-import type { PanelSpec, Seconds } from '../contracts.js'
+import type { FountainBankSpec, PanelSpec, SearchlightBankSpec, Seconds } from '../contracts.js'
 
 export interface ArtDmxParams {
   /** Rolling 1..255 per universe; 0 disables sequence tracking. */
@@ -85,7 +85,7 @@ export interface PatchSlice {
 
 export interface ChannelPatch {
   assetId: string
-  kind: 'panel' | 'laser'
+  kind: 'panel' | 'laser' | 'fountain' | 'searchlight'
   /** Expected length of the asset's channel-data blob. */
   totalChannels: number
   slices: readonly PatchSlice[]
@@ -139,6 +139,59 @@ export function laserPatch(assetId: string, universe: number): ChannelPatch {
     kind: 'laser',
     totalChannels: LASER_SLOTS.length,
     slices: [{ universe, channel: 1, offset: 0, length: LASER_SLOTS.length }],
+  }
+}
+
+/** Fixed fountain preset slot order per nozzle (4 channels each, nozzle-major). */
+export const FOUNTAIN_SLOTS = ['level', 'r', 'g', 'b'] as const
+
+/**
+ * Fixed fountain preset: per nozzle [level, r, g, b] (level = column height
+ * over the bank maximum), nozzle-major from channel 1 — up to 128 nozzles in
+ * one universe.
+ */
+export function fountainPatch(assetId: string, bank: FountainBankSpec, universe: number): ChannelPatch {
+  if (!Number.isInteger(universe) || universe < 0 || universe > 0x7fff) {
+    throw new RangeError(`artnet: fountain '${assetId}' universe out of 0..0x7fff: ${universe}`)
+  }
+  const nozzles = Math.max(1, Math.floor(bank.nozzles))
+  const total = nozzles * FOUNTAIN_SLOTS.length
+  if (total > 512) {
+    throw new RangeError(`artnet: fountain '${assetId}' needs ${total} channels (> 512 in one universe)`)
+  }
+  return {
+    assetId,
+    kind: 'fountain',
+    totalChannels: total,
+    slices: [{ universe, channel: 1, offset: 0, length: total }],
+  }
+}
+
+/** Fixed moving-head preset slot order per head (6 channels each, head-major). */
+export const SEARCHLIGHT_SLOTS = ['pan', 'tilt', 'dimmer', 'r', 'g', 'b'] as const
+
+/**
+ * Fixed searchlight preset: per head [pan, tilt, dimmer, r, g, b], head-major
+ * from channel 1 — up to 85 heads in one universe.
+ */
+export function searchlightPatch(
+  assetId: string,
+  bank: SearchlightBankSpec,
+  universe: number,
+): ChannelPatch {
+  if (!Number.isInteger(universe) || universe < 0 || universe > 0x7fff) {
+    throw new RangeError(`artnet: searchlight '${assetId}' universe out of 0..0x7fff: ${universe}`)
+  }
+  const heads = Math.max(1, Math.floor(bank.heads))
+  const total = heads * SEARCHLIGHT_SLOTS.length
+  if (total > 512) {
+    throw new RangeError(`artnet: searchlight '${assetId}' needs ${total} channels (> 512 in one universe)`)
+  }
+  return {
+    assetId,
+    kind: 'searchlight',
+    totalChannels: total,
+    slices: [{ universe, channel: 1, offset: 0, length: total }],
   }
 }
 

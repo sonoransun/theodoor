@@ -16,6 +16,7 @@ import { jupiterHymn } from './jupiterHymn.js'
 import { gymnopedie1 } from './gymnopedie1.js'
 import { clairDeLune } from './clairDeLune.js'
 import { moonlightAdagio } from './moonlightAdagio.js'
+import { vltava } from './vltava.js'
 
 export { odeToJoy } from './odeToJoy.js'
 export { starsAndStripesForever } from './starsAndStripesForever.js'
@@ -30,6 +31,7 @@ export { jupiterHymn } from './jupiterHymn.js'
 export { gymnopedie1 } from './gymnopedie1.js'
 export { clairDeLune } from './clairDeLune.js'
 export { moonlightAdagio } from './moonlightAdagio.js'
+export { vltava } from './vltava.js'
 
 export const SCORES: Record<string, Score> = {
   [odeToJoy.id]: odeToJoy,
@@ -45,6 +47,7 @@ export const SCORES: Record<string, Score> = {
   [gymnopedie1.id]: gymnopedie1,
   [clairDeLune.id]: clairDeLune,
   [moonlightAdagio.id]: moonlightAdagio,
+  [vltava.id]: vltava,
 }
 
 /** Look up a built-in score by id (undefined when unknown). */

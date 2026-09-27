@@ -1,14 +1,21 @@
 /**
  * WebGL1 scene renderer. Frame order:
+ *   0. bloom.begin()                — redirect the frame into the scene target
+ *      (no-op when offscreen targets are unavailable: draw straight to screen)
  *   1. clear (near-black) + backdrop texture quad — normal (opaque) pass
- *   2. particles (stars + drones)  — additive, blendFunc(ONE, ONE)
- *   3. laser beams                 — additive
- *   4. LED panels + bloom          — additive
- *   5. crowd-canvas cell points    — additive (floor band, needs setSite)
- *   6. audio-beam frustums         — additive (floor band, needs setSite)
+ *   2. wind-drifted smoke           — additive haze (needs setCompiled)
+ *   3. star streaks                 — additive (from SimSnapshot.stars.vel)
+ *   4. particles (stars + drones)   — additive, blendFunc(ONE, ONE)
+ *   5. laser beams                  — additive
+ *   6. LED panels + panel bloom     — additive
+ *   7. fountain columns + crests    — additive (SimSnapshot.jets)
+ *   8. searchlight beams            — additive (SimSnapshot.lights)
+ *   9. crowd-canvas cell points     — additive (floor band, needs setSite)
+ *  10. audio-beam frustums          — additive (floor band, needs setSite)
+ *  11. bloom.end()                  — scene → screen, thresholded blur added
  *
- * Passes 2–6 are all additive and therefore order-independent; the audience
- * layers go last simply because they arrived last.
+ * Passes 2–10 are all additive and therefore order-independent; the order
+ * above is just the order they arrived in.
  *
  * Context loss policy: the first loss is survivable — on 'webglcontextrestored'
  * every GL resource is rebuilt once. A second loss within 10 seconds is
@@ -17,7 +24,15 @@
  * fallback renderer by design).
  */
 import { crowdGridFor } from '@theodoor/core'
-import type { CrowdGrid, PositionedAsset, SimSnapshot, SitePlan } from '@theodoor/core'
+import type {
+  CompiledShow,
+  CrowdGrid,
+  EffectDef,
+  PositionedAsset,
+  SimSnapshot,
+  SitePlan,
+  Wind,
+} from '@theodoor/core'
 import { drawBackdrop } from './backdrop.js'
 import { makeCamera } from './camera.js'
 import type { Camera } from './camera.js'
@@ -26,12 +41,23 @@ import { createAudioBeamPipeline } from './glAudioBeams.js'
 import type { AudioBeamPipeline } from './glAudioBeams.js'
 import { createBeamPipeline } from './glBeams.js'
 import type { BeamPipeline } from './glBeams.js'
+import { createBloomPipeline } from './glBloom.js'
+import type { BloomPipeline } from './glBloom.js'
 import { createCrowdPipeline } from './glCrowd.js'
 import type { CrowdPipeline } from './glCrowd.js'
+import { createFountainPipeline } from './glFountains.js'
+import type { FountainPipeline } from './glFountains.js'
 import { createPanelPipeline } from './glPanel.js'
 import type { PanelPipeline } from './glPanel.js'
 import { createParticlePipeline } from './glParticles.js'
 import type { ParticlePipeline } from './glParticles.js'
+import { createSearchlightPipeline } from './glSearchlights.js'
+import type { SearchlightPipeline } from './glSearchlights.js'
+import { createSmokePipeline } from './glSmoke.js'
+import { prepareSmoke, type SmokeSource } from './smoke.js'
+import type { SmokePipeline } from './glSmoke.js'
+import { createStreakPipeline } from './glStreaks.js'
+import type { StreakPipeline } from './glStreaks.js'
 import { compileProgram } from './types.js'
 import type { SceneRenderer } from './types.js'
 
@@ -66,10 +92,15 @@ export interface GlRendererOptions {
 
 interface GlResources {
   particles: ParticlePipeline
+  streaks: StreakPipeline
+  smoke: SmokePipeline
   beams: BeamPipeline
   panels: PanelPipeline
+  fountains: FountainPipeline
+  searchlights: SearchlightPipeline
   crowd: CrowdPipeline
   audioBeams: AudioBeamPipeline
+  bloom: BloomPipeline
   backdropProg: WebGLProgram
   backdropTex: WebGLTexture
   backdropBuf: WebGLBuffer
@@ -104,6 +135,12 @@ export function createGlRenderer(
   let assets: readonly PositionedAsset[] = []
   /** Crowd grid derived from setSite (undefined → audience layers skip). */
   let crowdGrid: CrowdGrid | undefined
+  /** Compiled show for cue-derived layers (null → those layers skip). */
+  let compiledShow: CompiledShow | null = null
+  /** Smoke plan precomputed from the compiled show (empty → no smoke layer). */
+  let smokePlan: readonly SmokeSource[] = []
+  /** Site wind from setSite (smoke drift). */
+  let wind: Wind | undefined
   const assetById = new Map<string, PositionedAsset>()
   let res: GlResources | null = null
   let packScratch: Float32Array | undefined
@@ -135,10 +172,15 @@ export function createGlRenderer(
 
     return {
       particles: createParticlePipeline(ctx),
+      streaks: createStreakPipeline(ctx),
+      smoke: createSmokePipeline(ctx),
       beams: createBeamPipeline(ctx),
       panels: createPanelPipeline(ctx),
+      fountains: createFountainPipeline(ctx),
+      searchlights: createSearchlightPipeline(ctx),
       crowd: createCrowdPipeline(ctx),
       audioBeams: createAudioBeamPipeline(ctx),
+      bloom: createBloomPipeline(ctx, camera.widthPx, camera.heightPx),
       backdropProg,
       backdropTex,
       backdropBuf,
@@ -226,6 +268,14 @@ export function createGlRenderer(
 
     setSite(site: SitePlan | null): void {
       crowdGrid = site ? crowdGridFor(site) : undefined
+      wind = site?.wind
+    },
+
+    setCompiled(compiled: CompiledShow | null, getEffect?: (id: string) => EffectDef | undefined): void {
+      compiledShow = compiled
+      // The app owns catalog resolution (one lookup per session); without a
+      // lookup there is simply no smoke layer.
+      smokePlan = compiled && getEffect ? prepareSmoke(compiled, getEffect) : []
     },
 
     resize(w: number, h: number, dpr: number): void {
@@ -235,13 +285,17 @@ export function createGlRenderer(
       canvas.width = pw
       canvas.height = ph
       camera = makeCamera(pw, ph)
-      if (!contextLost && !dead) ctx.viewport(0, 0, pw, ph)
+      if (!contextLost && !dead) {
+        ctx.viewport(0, 0, pw, ph)
+        res?.bloom.resize(pw, ph)
+      }
       redrawBackdrop()
     },
 
-    render(snapshot: SimSnapshot, _tSec: number): void {
+    render(snapshot: SimSnapshot, tSec: number): void {
       if (disposed || dead || contextLost || !res) return
 
+      res.bloom.begin()
       ctx.clear(ctx.COLOR_BUFFER_BIT)
       drawBackdropPass()
 
@@ -249,13 +303,18 @@ export function createGlRenderer(
       ctx.enable(ctx.BLEND)
       ctx.blendFunc(ctx.ONE, ctx.ONE)
 
+      if (compiledShow && smokePlan.length > 0) res.smoke.draw(smokePlan, wind, camera, tSec)
+      res.streaks.draw(snapshot, camera)
       const packed = packSnapshot(snapshot, camera, packScratch)
       packScratch = packed.data
       res.particles.draw(packed)
       res.beams.draw(snapshot.laserFrames, camera, assetById)
       res.panels.draw(snapshot.panelFrames, camera, assetById)
+      res.fountains.draw(snapshot.jets, camera)
+      res.searchlights.draw(snapshot.lights, camera)
       res.crowd.draw(snapshot.crowd, camera, crowdGrid)
       res.audioBeams.draw(snapshot.beams, camera, crowdGrid, snapshot.t)
+      res.bloom.end()
     },
 
     dispose(): void {
@@ -265,10 +324,15 @@ export function createGlRenderer(
       canvas.removeEventListener('webglcontextrestored', onContextRestored)
       if (res && !contextLost) {
         res.particles.dispose()
+        res.streaks.dispose()
+        res.smoke.dispose()
         res.beams.dispose()
         res.panels.dispose()
+        res.fountains.dispose()
+        res.searchlights.dispose()
         res.crowd.dispose()
         res.audioBeams.dispose()
+        res.bloom.dispose()
         ctx.deleteProgram(res.backdropProg)
         ctx.deleteTexture(res.backdropTex)
         ctx.deleteBuffer(res.backdropBuf)

@@ -6,6 +6,7 @@
 export {
   Catalog,
   anticipationSec,
+  fountainRiseSec,
   getEffectFrom,
   FABRICATION_ANTICIPATION_SEC,
 } from './catalog.js'
@@ -23,4 +24,6 @@ export {
   FABRICATION_EFFECTS,
   CROWD_EFFECTS,
   BEAM_EFFECTS,
+  FOUNTAIN_EFFECTS,
+  SEARCHLIGHT_EFFECTS,
 } from './starter/index.js'

@@ -47,7 +47,7 @@ export interface Diagnostic {
 
 export type Medium =
   | 'pyro' | 'drone' | 'laser' | 'panel' | 'fabrication'
-  | 'crowd' | 'beam'
+  | 'crowd' | 'beam' | 'fountain' | 'searchlight'
 
 export interface EffectBase {
   id: string
@@ -175,9 +175,50 @@ export interface BeamEffect extends EffectBase {
   contentTag: string
 }
 
+export type FountainJetKind = 'plume' | 'fan' | 'wave' | 'cascade' | 'mist'
+
+/**
+ * Illuminated water-jet program on a fountain bank (a nozzle row on the lake
+ * with underwater RGB lighting). Performance metadata only. The solver's
+ * anticipation is honest ballistics: the bank's valve latency plus the
+ * column's rise time sqrt(2·heightM / g) — the valve opens early so the
+ * column CRESTS on the musical moment (a shell's rise time, in water).
+ */
+export interface FountainEffect extends EffectBase {
+  medium: 'fountain'
+  jet: FountainJetKind
+  /** Crest height above the nozzle, meters (params.heightM overrides; ≤ bank max). */
+  heightM: number
+  /** Nozzles engaged per bank, centered on the row; 0 = the whole row. */
+  nozzles: number
+  /** Column width at the crest, meters (visual + mist footprint). */
+  widthM: number
+  /** Underwater lighting colors, CSS hex. */
+  colors: readonly string[]
+}
+
+export type SearchlightFigure = 'pillar' | 'converge' | 'fan' | 'sweep' | 'cross' | 'chase'
+
+/**
+ * Sky-beam figure for a bank of moving-head searchlights. Performance
+ * metadata only. The solver's anticipation is the head SLEW: the largest
+ * angular distance from the bank's previous aim to this figure's opening aim
+ * over the bank's slewRateDegPerSec — heads are commanded early so the light
+ * ARRIVES on its aim on the beat (kinematics, like a drone morph).
+ */
+export interface SearchlightEffect extends EffectBase {
+  medium: 'searchlight'
+  figure: SearchlightFigure
+  /** Full beam divergence, degrees (narrow sky beams: 0.5–8). */
+  beamWidthDeg: number
+  /** Visible beam length in clear air, meters. */
+  reachM: number
+  colors: readonly string[]
+}
+
 export type EffectDef =
   | PyroEffect | DronePrimitive | LaserPrimitive | PanelPattern | FabricationEffect
-  | CrowdEffect | BeamEffect
+  | CrowdEffect | BeamEffect | FountainEffect | SearchlightEffect
 
 /**
  * Documented cue param keys per medium (all optional, validated by catalog):
@@ -189,6 +230,8 @@ export type EffectDef =
  *           densityFrac, twinkleHz, text (for 'text'), bitmap (row strings)
  *   beam:   targetCellId, pathCellIds, cells ('all'), pairId, role ('L'|'R'),
  *           extraDelayMs, sourceCueId, periodBeats, gainDb
+ *   fountain:    rgb, rgb2, heightM, nozzles, stepBeats, periodBeats, reverse
+ *   searchlight: rgb, aimX, aimY, aimZ, spreadDeg, tiltDeg, sweepDeg, periodBeats
  */
 export type CueParams = Record<
   string,
@@ -335,6 +378,38 @@ export interface ShowMeta {
   seed: number
 }
 
+/** One act of the program notes: a titled span of the show with a guest-facing note. */
+export interface ShowAct {
+  title: string
+  /** Where the act begins (resolved against the timeline by compile()). */
+  from: MusicAnchor
+  /** What to watch and listen for — written for the audience, not the crew. */
+  note: string
+}
+
+/**
+ * Narrative metadata: the printed program a guest receives and the caption
+ * the visualizer shows. Pure data; compile() resolves the acts to seconds.
+ */
+export interface ShowNotes {
+  /** One line under the title. */
+  tagline: string
+  /** Music credit lines, e.g. 'Bedřich Smetana — Vltava (1874)'. */
+  music: readonly string[]
+  acts: readonly ShowAct[]
+  /** Optional closing line. */
+  epilogue?: string
+}
+
+/** An act with its span resolved to show seconds (compile() output). */
+export interface CompiledAct {
+  title: string
+  fromSec: Seconds
+  /** Start of the next act, or the show's end. */
+  toSec: Seconds
+  note: string
+}
+
 /** Authored show — plain serializable data; catalog referenced by id. */
 export interface Show {
   meta: ShowMeta
@@ -347,6 +422,8 @@ export interface Show {
   noiseBudget?: NoiseBudget
   /** Overrides the default carrier-exposure budget (never disables it). */
   exposureBudget?: ExposureBudget
+  /** Program notes (acts, credits) for the printed program and the caption. */
+  notes?: ShowNotes
 }
 
 export interface CompiledCue {
@@ -372,6 +449,8 @@ export interface CompiledShow {
   /** Sorted by (fireSec, trackId, id) — a total, stable order. */
   cues: readonly CompiledCue[]
   diagnostics: readonly Diagnostic[]
+  /** Program-note acts resolved to seconds, ascending; present iff show.notes is. */
+  acts?: readonly CompiledAct[]
 }
 
 // ---------------------------------------------------------------------------
@@ -380,7 +459,7 @@ export interface CompiledShow {
 
 export type AssetKind =
   | 'mortarRack' | 'dronePad' | 'laserTower' | 'panel'
-  | 'crowdMast' | 'beamArray'
+  | 'crowdMast' | 'beamArray' | 'fountainBank' | 'searchlightBank'
 
 export interface RackSpec {
   calibersMm: readonly number[]
@@ -435,6 +514,34 @@ export interface BeamArraySpec {
   minFocusDistanceM: number
 }
 
+/**
+ * A row of illuminated water nozzles on the water surface (staging only:
+ * pumps, nozzle bar, underwater lights). Nozzles are spaced evenly over
+ * spanM, centered on the asset position, along the asset's headingDeg + 90°.
+ */
+export interface FountainBankSpec {
+  nozzles: number
+  spanM: number
+  /** Highest column the pumps can raise, meters. */
+  maxHeightM: number
+  /** Valve-open → first visible water, seconds (part of the anticipation). */
+  valveLatencySec: Seconds
+}
+
+/**
+ * A row of moving-head sky beams. Steering limits only — no lamp data.
+ * Heads are spaced evenly over spanM along headingDeg + 90°, centered on pos.
+ */
+export interface SearchlightBankSpec {
+  heads: number
+  spanM: number
+  slewRateDegPerSec: number
+  /** Maximum tilt from vertical, degrees. */
+  maxTiltDeg: number
+  /** Beams never aim below this elevation toward the audience azimuths. */
+  minElevationDeg: number
+}
+
 export interface PositionedAsset {
   id: string
   kind: AssetKind
@@ -447,6 +554,8 @@ export interface PositionedAsset {
   panel?: PanelSpec
   crowdMast?: CrowdMastSpec
   beamArray?: BeamArraySpec
+  fountainBank?: FountainBankSpec
+  searchlightBank?: SearchlightBankSpec
 }
 
 export interface Wind {
@@ -543,6 +652,8 @@ export interface SimSnapshot {
   stars: {
     count: number
     pos: Float32Array
+    /** Closed-form star velocity, m/s (xyz-interleaved) — the viz draws streaks from it. */
+    vel: Float32Array
     rgb: Float32Array
     brightness: Float32Array
     sizeM: Float32Array
@@ -569,8 +680,58 @@ export interface SimSnapshot {
   }
   /** Active directional-audio beams this step (≤ a handful; plain objects). */
   beams: readonly BeamState[]
+  /** Water columns above the nozzles this step, one per engaged nozzle. */
+  jets: readonly JetState[]
+  /** Searchlight heads lit this step, one per head. */
+  lights: readonly LightState[]
   /** Instantaneous dB per SitePlan.refListenerPos entry (-Infinity when silent). */
   splByListener: readonly number[]
+}
+
+/** One water column's state for a sim step (closed form in show time). */
+export interface JetState {
+  /** Index into CompiledShow.cues. */
+  cueIdx: number
+  assetId: string
+  /** Nozzle index within the bank row. */
+  nozzle: number
+  /** Nozzle position (z = the bank's elevation, the water surface). */
+  base: Vec3
+  /** Current column height above the base, meters. */
+  heightM: number
+  /** Crest height this column rises to, meters. */
+  crestM: number
+  /** Lateral crest offset for fanned jets, world meters (0 for vertical columns). */
+  tipDx: number
+  tipDy: number
+  widthM: number
+  r: number
+  g: number
+  b: number
+  phase: 'rising' | 'holding' | 'falling'
+  /** True once the column has crested (t ≥ targetSec) — the keystone landing. */
+  crested: boolean
+}
+
+/** One searchlight head's state for a sim step. */
+export interface LightState {
+  /** Index into CompiledShow.cues. */
+  cueIdx: number
+  assetId: string
+  /** Head index within the bank row. */
+  head: number
+  base: Vec3
+  /** Unit beam direction, world frame. */
+  dir: Vec3
+  reachM: number
+  halfAngleDeg: number
+  r: number
+  g: number
+  b: number
+  /** Lamp intensity 0..1 (fade-in on strike, fade-out at the hold's tail). */
+  intensity: number
+  /** True while the head is still slewing toward its opening aim (t < targetSec). */
+  slewing: boolean
 }
 
 /** Audible footprint ellipse on the audience plane (meters, world frame). */
@@ -613,6 +774,8 @@ export interface BeamState {
 export const SIM_STEP_HZ = 120
 /** Dry air at 20 °C — beam time-of-flight anticipation (fireSec = targetSec − d/c). */
 export const SPEED_OF_SOUND_MPS = 343
+/** Standard gravity — shell star fall, and the fountain column rise sqrt(2h/g). */
+export const GRAVITY_MPS2 = 9.81
 /** Altitude a drone formation's center flies at is this base + scale/2. */
 export const DRONE_BASE_ALTITUDE_M = 30
 export const SPL_REF_DISTANCE_M = 15

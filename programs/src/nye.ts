@@ -39,7 +39,7 @@
  * Pure and deterministic: no caching, no clocks, no randomness.
  */
 
-import type { Annotation, BuildResult, MusicalTimeline } from '@theodoor/core'
+import type { Annotation, BuildResult, MusicRefs, MusicalTimeline, ShowBuilder } from '@theodoor/core'
 import {
   annotationsOfKind,
   auldLangSyne,
@@ -91,6 +91,58 @@ function nyeTimeline(): MusicalTimeline {
   return { ...tl, annotations }
 }
 
+
+/**
+ * Program notes (the printed program), shared by both variants. The five
+ * acts sit on the cues' own anchors: the pass-2 verse, the first countdown
+ * digit, the midnight accent, and four bars into the reprise.
+ */
+function programNotes(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
+  b.notes({
+    tagline: quiet
+      ? 'Three passes of Auld Lang Syne, and a countdown you can wear — the quiet performance, midnight in comets and light.'
+      : 'Three passes of Auld Lang Syne, and a countdown you can wear.',
+    music: ['Robert Burns (words, 1788) / traditional Scots air — Auld Lang Syne'],
+    epilogue: 'Should auld acquaintance be forgot — not tonight.',
+  })
+  b.act(
+    'I — Old Acquaintance',
+    m.time(0),
+    'The first pass is gentle: gold willows and silver chrysanthemums on the phrase ends, wide ' +
+      'slow laser fans that read as mist over the lake, and a gold star of sixty drones held ' +
+      'through the verse. The panels already know what is coming.',
+  )
+  b.act(
+    'II — The Clock',
+    m.annotation('accent', 1, 'verse1'),
+    'On the ritardando the star turns into a clock face of 120 drones and holds it for a full ' +
+      'minute across the second pass. Panel chases quicken with every verse, gold comets mark ' +
+      'the section starts, and brocades take the pass-two climax.',
+  )
+  b.act(
+    'III — Countdown',
+    m.lastDownbeatsBefore(MIDNIGHT, 37)[0]!,
+    'Nine to zero in drone digits, one every four bars, each landing exactly on a downbeat: a ' +
+      'digit needs eight seconds to hold and three to fly, so the count walks every fourth bar ' +
+      'rather than every one. A gold pulse ripples out from the centre of the lawn on every ' +
+      'digit, and through the last three bars a single whispered count-in from the tower behind ' +
+      'you reaches the mid-lawn seats alone.',
+  )
+  b.act(
+    'IV — Midnight',
+    m.annotation('accent', 0, MIDNIGHT),
+    'Forty seconds of barrage across all eight racks, densest and largest at the stroke itself. ' +
+      'The wristbands spell 2027 while the whole lawn flashes white, the drones spell it in the ' +
+      'sky a few bars later, and a radial burst of laser light fans from both towers.',
+  )
+  b.act(
+    'V — The Reprise',
+    m.offset(m.annotation('accent', 0, MIDNIGHT), 16),
+    'The song comes back one last time under gold willows and a slow gold sweep of laser light, ' +
+      'and the show lets go.',
+  )
+}
+
 function buildNye(variant: 'standard' | 'quiet'): BuildResult {
   const quiet = variant === 'quiet'
   const tl = nyeTimeline()
@@ -110,6 +162,7 @@ function buildNye(variant: 'standard' | 'quiet'): BuildResult {
     .music(tl)
     .preRoll(6)
   if (quiet) b.noiseBudget(85)
+  programNotes(b, m, quiet)
 
   // ---- Act 1 (pass 1, gentle) ---------------------------------------------
   // Soft shells on the first three phrase ends (bars 9/17/25).

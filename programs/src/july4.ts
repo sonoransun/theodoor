@@ -247,6 +247,60 @@ function finaleUsa(b: ShowBuilder, m: MusicRefs): void {
 }
 
 // ---------------------------------------------------------------------------
+// Program notes (the printed program) — shared by both variants
+// ---------------------------------------------------------------------------
+
+/** Tagline, music credits, and five acts anchored on the suite's own marks. */
+function programNotes(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
+  b.notes({
+    tagline: quiet
+      ? 'A march, a battle, and a sky that keeps time — the quiet performance, where the cannons arrive as light.'
+      : 'A march, a battle, and a sky that keeps time.',
+    music: [
+      'John Philip Sousa — The Stars and Stripes Forever (1896)',
+      'Pyotr Ilyich Tchaikovsky — 1812 Overture, finale (1880)',
+    ],
+    epilogue: 'Sixteen cannons, one flag, and every burst on its beat.',
+  })
+  b.act(
+    'I — Colors',
+    m.time(0),
+    'Fifty drones rise from behind the firing line and settle into a waving flag by the end of ' +
+      'the second phrase. Every phrase of the march ends in a red, white and blue volley — the ' +
+      'shells left their mortars two seconds before you see them, so the breaks land on the ' +
+      'downbeat, never after it. A single gold comet marks the start of each strain.',
+  )
+  b.act(
+    'II — The Trio',
+    m.annotation('accent', 0, 'trio'),
+    'Look down. The trio washes across the lawn in red, white and blue waves on the wristbands, ' +
+      'each wavefront sent a fraction of a second early so it finishes lighting on the beat. ' +
+      'Stripes ripple on the panels, and laser fans open over the water through the break strain.',
+  )
+  b.act(
+    'III — Grandioso',
+    m.climax(0),
+    'The flag melts into a five-point star over the lake as the band goes grandioso, with gold ' +
+      'brocade and red crossettes layered on the very same landing.',
+  )
+  b.act(
+    'IV — 1812',
+    m.annotation('accent', 0, 'largoHymn'),
+    "Tchaikovsky's finale, with its sixteen cannons on the far ends of the line. Each cannon is " +
+      'fired early by its own rise time so it lands exactly on the written hit — in the quiet ' +
+      'performance the cannons are white strobes, low silver accents and laser hits. Willows and ' +
+      'brocades hang over the phrase ends; the bell peal gets lissajous lasers and chasing panels.',
+  )
+  b.act(
+    'V — Final Chord',
+    m.annotation('accent', 0, 'codaHymn'),
+    'The coda ramps from one shell every two seconds to eight a second across six racks, the ' +
+      'bursts growing as it goes, and lands a triple gold burst on the final chord while sixty ' +
+      'drones spell USA.',
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Standard show
 // ---------------------------------------------------------------------------
 
@@ -265,6 +319,7 @@ export function july4(): BuildResult {
     .music(tl)
     .preRoll(PRE_ROLL_SEC)
     .quantize('none')
+  programNotes(b, m, false)
 
   // --- ACT 1: Stars & Stripes ----------------------------------------------
   droneFlagAndStar(b, m)
@@ -365,6 +420,7 @@ export function july4Quiet(): BuildResult {
     .preRoll(PRE_ROLL_SEC)
     .quantize('none')
     .noiseBudget(85)
+  programNotes(b, m, true)
 
   // --- Drones: flag and star unchanged, plus color pulses and the coda bloom.
   droneFlagAndStar(b, m)

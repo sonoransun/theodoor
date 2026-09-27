@@ -8,6 +8,11 @@
  * SPL_REF_DISTANCE_M propagates at −6 dB per distance doubling over the
  * head-to-ear slant, minus BEAM_LEAKAGE_DB when the seat is outside the
  * footprint ellipse (core's inFootprint decides membership).
+ *
+ * The monitor mapping (monitorGain / reportGain) is shared with the report
+ * audition (reportMath.ts) so beams and shell reports sit in honest
+ * proportion; the Doppler helpers give swept beams the pitch motion of the
+ * virtual source they portray.
  */
 import {
   BEAM_LEAKAGE_DB,
@@ -59,6 +64,26 @@ export function monitorGain(db: number): number {
   return Math.min(MONITOR_MAX_GAIN, g)
 }
 
+/** Reports compress this many dB of source level into 1 dB of monitor above the anchor. */
+export const REPORT_COMPRESS_RATIO = 4
+/** Hard cap on a report's linear gain (a salute at the seat peaks about here). */
+export const REPORT_MAX_GAIN = 1
+
+/**
+ * Monitor gain for shell reports, set pieces, and water — the SAME anchor as
+ * the beams (MONITOR_REF_DB ↔ MONITOR_REF_GAIN, so a murmur and a comet sit
+ * in honest proportion), but 4:1 compressed above the anchor: fireworks span
+ * ~65 dB of source level at the seat (a 30 mm comet's whoosh to a 150 mm
+ * salute) and a linear map would pin everything loud to one clamp. Below the
+ * anchor it IS monitorGain (identical numbers). -Infinity/NaN map to 0.
+ */
+export function reportGain(db: number): number {
+  if (!Number.isFinite(db)) return 0
+  if (db <= MONITOR_REF_DB) return monitorGain(db)
+  const compressedDb = MONITOR_REF_DB + (db - MONITOR_REF_DB) / REPORT_COMPRESS_RATIO
+  return Math.min(REPORT_MAX_GAIN, MONITOR_REF_GAIN * Math.pow(10, (compressedDb - MONITOR_REF_DB) / 20))
+}
+
 /**
  * Arrival delay at the seat: acoustic slant time-of-flight plus the cue's
  * stereo-pair extraDelayMs, capped at MAX_BEAM_DELAY_SEC (the DelayNode max).
@@ -75,6 +100,42 @@ export function seatDelaySec(beam: SeatBeam, seat: Vec2): number {
  */
 export function seatPan(apex: Vec3, seat: Vec2): number {
   return Math.sin(Math.atan2(apex.x - seat.x, apex.y - seat.y))
+}
+
+// ---------------------------------------------------------------------------
+// Doppler-like motion for swept beams
+// ---------------------------------------------------------------------------
+
+/** Playback-rate clamp for the Doppler illusion (≈ −2.8 / +2.9 semitones). */
+export const DOPPLER_RATE_MIN = 0.85
+export const DOPPLER_RATE_MAX = 1.18
+/** EMA smoothing factor per rAF frame for the radial-velocity estimate. */
+export const DOPPLER_SMOOTHING = 0.25
+
+/**
+ * Radial velocity of a beam's aim relative to the seat, m/s, from two
+ * successive ground targets dtSec apart: positive = receding, negative =
+ * approaching. 0 when dt is not positive.
+ */
+export function radialVelocityMps(prev: Vec2, next: Vec2, seat: Vec2, dtSec: number): number {
+  if (!(dtSec > 0)) return 0
+  const d0 = Math.hypot(prev.x - seat.x, prev.y - seat.y)
+  const d1 = Math.hypot(next.x - seat.x, next.y - seat.y)
+  return (d1 - d0) / dtSec
+}
+
+/**
+ * Doppler playback rate for a virtual source moving at vRadialMps relative
+ * to the listener: c / (c + v) — receding sources drop in pitch, approaching
+ * ones rise — clamped to [DOPPLER_RATE_MIN, DOPPLER_RATE_MAX]. A steered
+ * array does not physically Doppler-shift (only its aim moves), but a
+ * flyover is MEANT to sound like something crossing the lawn, so the
+ * audition applies the shift the virtual source would have. 0 → 1.
+ */
+export function dopplerRate(vRadialMps: number): number {
+  if (!Number.isFinite(vRadialMps)) return 1
+  const rate = SPEED_OF_SOUND_MPS / (SPEED_OF_SOUND_MPS + vRadialMps)
+  return Math.min(DOPPLER_RATE_MAX, Math.max(DOPPLER_RATE_MIN, rate))
 }
 
 /** Murmur band-pass center frequency floor, Hz. */

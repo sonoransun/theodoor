@@ -13,7 +13,16 @@
  *       different delays with no special-casing)
  *     → StereoPannerNode (pan = sin(array azimuth from the seat; the seat
  *       faces the stage, world +y))
- *     → shared master gain → destination.
+ *     → shared master gain → the mix bus (dry) and the reverb send.
+ *
+ * DOPPLER FOR SWEPT BEAMS: a flyover, sweep, or source tag portrays a source
+ * crossing the lawn, so the audition applies the pitch motion that virtual
+ * source would have: the aim's radial velocity relative to the seat is
+ * estimated from successive BeamState.target values per update (EMA
+ * smoothed, beamMath.radialVelocityMps) and mapped through
+ * beamMath.dopplerRate = c / (c + v) onto BOTH the source playbackRate and
+ * the murmur band-pass center (the noise is white, so the rate alone would
+ * be inaudible — the filter carries the pitch). Static aims stay at rate 1.
  *
  * All level/delay/pan math lives in audio/beamMath.ts (pure, tested); this
  * class only owns node lifecycle. Params are smoothed with setTargetAtTime
@@ -36,9 +45,12 @@
  */
 import type { BeamState, CompiledCue, Vec2 } from '@theodoor/core'
 import {
+  DOPPLER_SMOOTHING,
   MAX_BEAM_DELAY_SEC,
+  dopplerRate,
   monitorGain,
   murmurFcHz,
+  radialVelocityMps,
   seatDelaySec,
   seatLevelDb,
   seatPan,
@@ -47,6 +59,10 @@ import { noiseBuffer } from './voices.js'
 
 /** setTargetAtTime time constant for gain/pan/delay smoothing, seconds. */
 export const BEAM_SMOOTH_TAU_SEC = 0.05
+/** setTargetAtTime time constant for the Doppler rate / filter glide, seconds. */
+export const DOPPLER_SMOOTH_TAU_SEC = 0.12
+/** Default reverb send level for beam chains. */
+export const BEAM_REVERB_SEND = 0.4
 /** Murmur band-pass Q. */
 export const MURMUR_Q = 2
 /**
@@ -54,6 +70,13 @@ export const MURMUR_Q = 2
  * silent (e^-8 ≈ 0.00034, about −70 dB below the pre-release level).
  */
 export const BEAM_RELEASE_TAU_MULTIPLE = 8
+/**
+ * Doppler sanity bounds: a swept footprint crosses the lawn at tens of m/s; an
+ * apparent radial speed above this (or a sample gap longer than the max gap)
+ * means a seek or a cell jump, and the velocity estimate resets to 0.
+ */
+export const DOPPLER_MAX_PLAUSIBLE_MPS = 80
+export const DOPPLER_MAX_GAP_SEC = 0.25
 
 /**
  * Release horizon for a chain whose cue just left the active set, seconds:
@@ -100,6 +123,12 @@ interface Chain {
   gain: GainNode
   delay: DelayNode
   pan: StereoPannerNode
+  /** Murmur center at rest (the Doppler rate scales it). */
+  fcHz: number
+  /** Doppler bookkeeping: last aim, its context time, smoothed radial velocity. */
+  lastTarget: Vec2
+  lastAtSec: number
+  vRadial: number
 }
 
 interface Reaping {
@@ -113,10 +142,18 @@ function isDocumentHidden(): boolean {
   return typeof document !== 'undefined' && document.hidden === true
 }
 
+export interface BeamAudioOptions {
+  /** Dry output (the mix bus); defaults to ctx.destination. */
+  out?: AudioNode
+  /** Reverb send input (MixBus.reverb.input); omitted → no send. */
+  reverbSend?: AudioNode | null
+}
+
 export class BeamAudio {
   private readonly ctx: AudioContext
   private readonly cues: readonly CompiledCue[]
   private readonly master: GainNode
+  private readonly send: GainNode | null
   private readonly chains = new Map<number, Chain>()
   /** Released chains draining toward silence before node teardown. */
   private reaping: Reaping[] = []
@@ -124,12 +161,20 @@ export class BeamAudio {
   private seat: Vec2 | null = null
   private disposed = false
 
-  constructor(ctx: AudioContext, cues: readonly CompiledCue[]) {
+  constructor(ctx: AudioContext, cues: readonly CompiledCue[], opts: BeamAudioOptions = {}) {
     this.ctx = ctx
     this.cues = cues
     this.master = ctx.createGain()
     this.master.gain.value = 1
-    this.master.connect(ctx.destination)
+    this.master.connect(opts.out ?? ctx.destination)
+    if (opts.reverbSend) {
+      this.send = ctx.createGain()
+      this.send.gain.value = BEAM_REVERB_SEND
+      this.master.connect(this.send)
+      this.send.connect(opts.reverbSend)
+    } else {
+      this.send = null
+    }
     // Hidden tabs render audio while rAF halts: mute on hide, and let the
     // first update() after foregrounding restore the correct gains.
     if (typeof document !== 'undefined') {
@@ -167,7 +212,21 @@ export class BeamAudio {
       if (seat) {
         chain.delay.delayTime.setTargetAtTime(seatDelaySec(b, seat), t, BEAM_SMOOTH_TAU_SEC)
         chain.pan.pan.setTargetAtTime(seatPan(b.apex, seat), t, BEAM_SMOOTH_TAU_SEC)
+        // Doppler of the virtual source: the aim's radial velocity toward /
+        // away from the seat, EMA-smoothed across updates. A seek, a long rAF
+        // gap, or a chained flyover jumping cells is a DISCONTINUITY, not
+        // motion: an implausible velocity or a stale sample resets the
+        // estimate instead of bending the pitch.
+        const dt = t - chain.lastAtSec
+        const v = radialVelocityMps(chain.lastTarget, b.target, seat, dt)
+        const plausible = playing && dt > 0 && dt <= DOPPLER_MAX_GAP_SEC && Number.isFinite(v) && Math.abs(v) <= DOPPLER_MAX_PLAUSIBLE_MPS
+        chain.vRadial = plausible ? chain.vRadial + DOPPLER_SMOOTHING * (v - chain.vRadial) : 0
+        const rate = dopplerRate(chain.vRadial)
+        chain.src.playbackRate.setTargetAtTime(rate, t, DOPPLER_SMOOTH_TAU_SEC)
+        chain.filter.frequency.setTargetAtTime(chain.fcHz * rate, t, DOPPLER_SMOOTH_TAU_SEC)
       }
+      chain.lastTarget = b.target
+      chain.lastAtSec = t
     }
 
     for (const [cueIdx, chain] of this.chains) {
@@ -190,6 +249,7 @@ export class BeamAudio {
     for (const r of this.reaping) teardownChain(r.chain)
     this.reaping = []
     this.master.disconnect()
+    this.send?.disconnect()
   }
 
   /** Ramp every chain's gain to 0 (hidden tab); update() restores later. */
@@ -237,7 +297,8 @@ export class BeamAudio {
 
     const filter = ctx.createBiquadFilter()
     filter.type = 'bandpass'
-    filter.frequency.value = murmurFcHz(this.cues[beam.cueIdx]?.seed ?? 0)
+    const fcHz = murmurFcHz(this.cues[beam.cueIdx]?.seed ?? 0)
+    filter.frequency.value = fcHz
     filter.Q.value = MURMUR_Q
 
     const gain = ctx.createGain()
@@ -256,7 +317,17 @@ export class BeamAudio {
     delay.connect(pan)
     pan.connect(this.master)
     src.start()
-    return { src, filter, gain, delay, pan }
+    return {
+      src,
+      filter,
+      gain,
+      delay,
+      pan,
+      fcHz,
+      lastTarget: beam.target,
+      lastAtSec: ctx.currentTime,
+      vRadial: 0,
+    }
   }
 }
 

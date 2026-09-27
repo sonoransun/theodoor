@@ -4,7 +4,7 @@
  * NO Canvas2D fallback renderer: when WebGL is unavailable the app shows a
  * "WebGL required" message instead.
  */
-import type { PositionedAsset, SimSnapshot, SitePlan } from '@theodoor/core'
+import type { CompiledShow, EffectDef, PositionedAsset, SimSnapshot, SitePlan } from '@theodoor/core'
 
 export interface Renderer {
   /** CSS size + devicePixelRatio; backing store is w·dpr × h·dpr. */
@@ -21,6 +21,12 @@ export interface SceneRenderer extends Renderer {
    * Null for site-less sessions (synthetic demo) — those layers skip.
    */
   setSite(site: SitePlan | null): void
+  /**
+   * The compiled show for cue-derived layers (wind-drifted smoke from the
+   * pyro bursts) plus the app's effect lookup for its catalog. Null / absent
+   * for site-less sessions — those layers skip.
+   */
+  setCompiled(compiled: CompiledShow | null, getEffect?: (id: string) => EffectDef | undefined): void
 }
 
 /** Compile + link a WebGL1 program; throws with the info log on failure. */

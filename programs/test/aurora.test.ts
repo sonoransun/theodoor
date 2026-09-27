@@ -31,6 +31,22 @@ describe('aurora (standard)', () => {
     expect(std.show.music.id).toBe('aurora-suite')
   })
 
+  it('carries program notes: acts in order, chronological, shared by both variants', () => {
+    const titles = (r: BuildResult) => r.compiled.acts!.map((a) => a.title)
+    expect(titles(std)).toEqual(['I — First Light', 'II — Moonrise', 'III — Sleep'])
+    expect(titles(quiet)).toEqual(titles(std))
+    const acts = std.compiled.acts!
+    for (let i = 1; i < acts.length; i++) {
+      expect(acts[i]!.fromSec).toBeGreaterThan(acts[i - 1]!.fromSec)
+      expect(acts[i - 1]!.toSec).toBe(acts[i]!.fromSec)
+    }
+    expect(std.show.notes?.music.length).toBeGreaterThan(0)
+    expect(std.show.notes?.tagline).not.toBe(quiet.show.notes?.tagline)
+    expect(acts.every((a) => a.note.length > 40)).toBe(true)
+    expect(std.compiled.diagnostics.some((d) => d.code === 'ACT_UNRESOLVED')).toBe(false)
+    expect(acts[1]!.fromSec).toBe(std.show.music.annotations.find((a) => a.label === 'moonrise')!.time)
+  })
+
   it('has the expected cue counts by medium', () => {
     const byMedium = new Map<string, number>()
     for (const c of std.compiled.cues) byMedium.set(c.medium, (byMedium.get(c.medium) ?? 0) + 1)

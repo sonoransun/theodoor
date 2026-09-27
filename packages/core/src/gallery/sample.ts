@@ -8,7 +8,7 @@
  * owns its buffers.
  */
 
-import type { BeamState, CompiledShow, EffectDef, Seconds } from '../contracts.js'
+import type { BeamState, CompiledShow, EffectDef, JetState, LightState, Seconds } from '../contracts.js'
 import { SimEngine } from '../sim/engine.js'
 
 export interface SampleOpts {
@@ -33,6 +33,8 @@ export interface GalleryFrame {
   drones: { count: number; pos: Float32Array; rgb: Float32Array }
   crowd: { cellCount: number; rgb: Float32Array; white: Float32Array }
   beams: readonly BeamState[]
+  jets: readonly JetState[]
+  lights: readonly LightState[]
 }
 
 /**
@@ -69,9 +71,11 @@ export function sampleFrames(compiled: CompiledShow, opts: SampleOpts): GalleryF
         rgb: s.crowd.rgb.slice(),
         white: s.crowd.white.slice(),
       },
-      // beamStatesAt builds fresh plain objects each step; copying the array
-      // is enough to own them.
+      // beamStatesAt / jetStatesAt / lightStatesAt build fresh plain objects
+      // each step; copying the arrays is enough to own them.
       beams: [...s.beams],
+      jets: [...s.jets],
+      lights: [...s.lights],
     })
   }
   return frames

@@ -82,7 +82,7 @@ describe('sitePlanSvg', () => {
 
   it('labels every asset id', () => {
     for (const a of site.assets) expect(svg).toContain(`>${a.id}</text>`)
-    expect(site.assets).toHaveLength(22)
+    expect(site.assets).toHaveLength(26) // + 2 fountain banks + 2 searchlight banks
   })
 
   it('draws one throw arc per beam array (6 on lakesidePark)', () => {

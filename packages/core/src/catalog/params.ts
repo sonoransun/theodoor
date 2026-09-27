@@ -6,6 +6,8 @@
  *   laser:  headId, spreadDeg, periodBeats, rgb
  *   panel:  text, speedPxPerBeat, rgb, rgb2
  *   pyro:   (none in v1 — everything comes from the effect entry)
+ *   fountain:    rgb, rgb2, heightM, nozzles, stepBeats, periodBeats, reverse
+ *   searchlight: rgb, aimX, aimY, aimZ, spreadDeg, tiltDeg, sweepDeg, periodBeats
  * Fabrication is not listed there, so it accepts no params either.
  */
 
@@ -60,6 +62,25 @@ export const ALLOWED_PARAM_KEYS: Readonly<Record<Medium, Readonly<Record<string,
     sourceCueId: 'string',
     periodBeats: 'number',
     gainDb: 'number',
+  },
+  fountain: {
+    rgb: 'numberArray',
+    rgb2: 'numberArray',
+    heightM: 'number',
+    nozzles: 'number',
+    stepBeats: 'number',
+    periodBeats: 'number',
+    reverse: 'boolean',
+  },
+  searchlight: {
+    rgb: 'numberArray',
+    aimX: 'number',
+    aimY: 'number',
+    aimZ: 'number',
+    spreadDeg: 'number',
+    tiltDeg: 'number',
+    sweepDeg: 'number',
+    periodBeats: 'number',
   },
 }
 

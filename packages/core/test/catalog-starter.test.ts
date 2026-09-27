@@ -1,21 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import type {
   DroneFormationKind,
+  FountainJetKind,
   LaserShape,
   PanelPatternKind,
   PyroEffect,
+  SearchlightFigure,
 } from '../src/contracts.js'
+import { GRAVITY_MPS2 } from '../src/contracts.js'
 import {
   BEAM_EFFECTS,
   CROWD_EFFECTS,
   DRONE_EFFECTS,
   FABRICATION_EFFECTS,
+  FOUNTAIN_EFFECTS,
   LASER_EFFECTS,
   PANEL_EFFECTS,
   PYRO_EFFECTS,
+  SEARCHLIGHT_EFFECTS,
   STARTER_CATALOG_ID,
   STARTER_EFFECTS,
   anticipationSec,
+  fountainRiseSec,
   starterCatalog,
 } from '../src/catalog/index.js'
 
@@ -35,7 +41,43 @@ describe('starter catalog', () => {
     expect(FABRICATION_EFFECTS).toHaveLength(5)
     expect(CROWD_EFFECTS).toHaveLength(10)
     expect(BEAM_EFFECTS).toHaveLength(9)
-    expect(cat.size).toBe(90)
+    expect(FOUNTAIN_EFFECTS).toHaveLength(6)
+    expect(SEARCHLIGHT_EFFECTS).toHaveLength(6)
+    expect(cat.size).toBe(102)
+  })
+
+  it('keeps the frozen medium order: fountains and searchlights are appended last', () => {
+    const media = STARTER_EFFECTS.map((e) => e.medium)
+    expect(media.lastIndexOf('beam')).toBeLessThan(media.indexOf('fountain'))
+    expect(media.lastIndexOf('fountain')).toBeLessThan(media.indexOf('searchlight'))
+  })
+
+  it('covers every fountain jet kind and every searchlight figure', () => {
+    const jets: FountainJetKind[] = ['plume', 'fan', 'wave', 'cascade', 'mist']
+    const presentJets = new Set(FOUNTAIN_EFFECTS.map((e) => e.jet))
+    for (const j of jets) expect(presentJets.has(j), `jet ${j}`).toBe(true)
+    const figures: SearchlightFigure[] = ['pillar', 'converge', 'fan', 'sweep', 'cross', 'chase']
+    const presentFigures = new Set(SEARCHLIGHT_EFFECTS.map((e) => e.figure))
+    for (const f of figures) expect(presentFigures.has(f), `figure ${f}`).toBe(true)
+  })
+
+  it('fountains and searchlights are quiet-variant legal and low-noise tagged', () => {
+    for (const e of [...FOUNTAIN_EFFECTS, ...SEARCHLIGHT_EFFECTS]) {
+      expect(e.noiseDbAt15m).toBeLessThanOrEqual(100)
+      expect(e.tags).toContain('low-noise')
+    }
+  })
+
+  it('fountains and searchlights are solver-derived: the catalog lead is a 0 placeholder', () => {
+    // The solver owns both leads (sim/fountains fountainAnticipationSec adds the
+    // bank's valve latency to the ballistic rise; sim/lights chains the slew), so
+    // the catalog never carries a value that could disagree with a compiled cue.
+    for (const f of FOUNTAIN_EFFECTS) {
+      expect(anticipationSec(f)).toBe(0)
+      expect(fountainRiseSec(f.heightM)).toBeCloseTo(Math.sqrt((2 * f.heightM) / GRAVITY_MPS2), 12)
+    }
+    expect(fountainRiseSec(45)).toBeCloseTo(3.029, 3)
+    for (const l of SEARCHLIGHT_EFFECTS) expect(anticipationSec(l)).toBe(0)
   })
 
   it('contains the canonical example ids', () => {

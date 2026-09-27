@@ -10,6 +10,9 @@
  * b.pyro.fire({ effect: 'peony-75-red', position: 'rack-1', land: m.barBeat(3, 1) })
  * b.crowd.wave({ effect: 'crowd-wave-lateral', position: 'mast-west', from: m.beat(8), periodBeats: 16 })
  * b.beams.whisper({ effect: 'beam-whisper-narration', position: 'beam-south-west', target: 305, land: m.beat(12) })
+ * b.fountains.jet({ effect: 'fountain-plume-30m', position: 'fount-west', crest: m.downbeat(4) })
+ * b.lights.converge({ effect: 'light-converge-spire', positions: ['lights-west', 'lights-east'], at: { x: 0, z: 160 }, land: m.climax() })
+ * b.notes({ tagline: '…', music: ['…'] }).act('I — Two Springs', m.time(0), '…')
  * const { show, compiled } = b.build()   // throws when any diagnostic is an error
  *
  * Cue ids are deterministic: '<trackId>-<n>' for singles, '<idPrefix>-NNN'
@@ -27,6 +30,8 @@ import type {
   Score,
   Seconds,
   Show,
+  ShowAct,
+  ShowNotes,
   SitePlan,
   Track,
 } from '../contracts.js'
@@ -54,6 +59,12 @@ import {
 import { offsetAnchor } from '../choreo/generators/pyro.js'
 import { resolveAnchor } from './anchors.js'
 import { compile } from './compile.js'
+import { FountainTrackBuilder } from './builderFountains.js'
+import { LightsTrackBuilder } from './builderLights.js'
+import { TrackBuilder, type RawCue, type TrackOwner } from './trackBuilder.js'
+
+export { TrackBuilder } from './trackBuilder.js'
+export type { RawCue, TrackOwner } from './trackBuilder.js'
 
 const pad3 = (k: number): string => String(k).padStart(3, '0')
 
@@ -453,53 +464,10 @@ export interface BeamTollSpec {
   priority?: number
 }
 
-/** Raw cue input for TrackBuilder.cue(): id optional, everything else as contracts.Cue. */
-export interface RawCue {
-  id?: string
-  effectId: string
-  anchor: MusicAnchor
-  positionId?: string
-  params?: CueParams
-  priority?: number
-}
-
 // ---------------------------------------------------------------------------
-// Track facades
+// Track facades (the base class lives in trackBuilder.ts so sibling facade
+// files can extend it without an import cycle)
 // ---------------------------------------------------------------------------
-
-class TrackBuilder {
-  protected readonly owner: ShowBuilderImpl
-  readonly trackId: string
-  private counter = 0
-
-  constructor(owner: ShowBuilderImpl, trackId: string) {
-    this.owner = owner
-    this.trackId = trackId
-  }
-
-  /** Next deterministic auto id / group prefix: '<trackId>-<n>'. */
-  protected nextId(): string {
-    return `${this.trackId}-${this.counter++}`
-  }
-
-  protected push(cue: Cue): void {
-    this.owner.addCue(this.trackId, cue)
-  }
-
-  protected pushRaw(raw: RawCue): void {
-    const cue: Cue = { id: raw.id ?? this.nextId(), effectId: raw.effectId, anchor: raw.anchor }
-    if (raw.positionId !== undefined) cue.positionId = raw.positionId
-    if (raw.params !== undefined) cue.params = raw.params
-    if (raw.priority !== undefined) cue.priority = raw.priority
-    this.push(cue)
-  }
-
-  /** Append a raw cue (id auto-assigned when omitted). */
-  cue(raw: RawCue): this {
-    this.pushRaw(raw)
-    return this
-  }
-}
 
 class PyroTrackBuilder extends TrackBuilder {
   /** One shell/comet/mine landing on `land`. */
@@ -985,15 +953,18 @@ const TRACK_DEFS = [
   { id: 'fabrication', medium: 'fabrication', name: 'Fabrication' },
   { id: 'crowd', medium: 'crowd', name: 'Crowd' },
   { id: 'beams', medium: 'beam', name: 'Beams' },
+  { id: 'fountains', medium: 'fountain', name: 'Fountains' },
+  { id: 'lights', medium: 'searchlight', name: 'Searchlights' },
 ] as const
 
-class ShowBuilderImpl {
+class ShowBuilderImpl implements TrackOwner {
   readonly catalog: Catalog
   private readonly opts: ShowBuilderOptions
   private tl: MusicalTimeline | undefined
   private budgetDb: number | undefined
   private preRollSec: Seconds | undefined
   private quantizeGrid: QuantizeGrid = 'none'
+  private showNotes: ShowNotes | undefined
   private readonly cuesByTrack = new Map<string, Cue[]>()
 
   readonly pyro: PyroTrackBuilder
@@ -1003,6 +974,8 @@ class ShowBuilderImpl {
   readonly fabrication: TrackBuilder
   readonly crowd: CrowdTrackBuilder
   readonly beams: BeamTrackBuilder
+  readonly fountains: FountainTrackBuilder
+  readonly lights: LightsTrackBuilder
 
   constructor(opts: ShowBuilderOptions) {
     this.opts = opts
@@ -1015,6 +988,8 @@ class ShowBuilderImpl {
     this.fabrication = new TrackBuilder(this, 'fabrication')
     this.crowd = new CrowdTrackBuilder(this, 'crowd')
     this.beams = new BeamTrackBuilder(this, 'beams')
+    this.fountains = new FountainTrackBuilder(this, 'fountains')
+    this.lights = new LightsTrackBuilder(this, 'lights')
   }
 
   /** @internal track facades append through here. */
@@ -1059,6 +1034,28 @@ class ShowBuilderImpl {
   }
 
   /**
+   * Program notes: the tagline, music credits, and acts a guest reads in the
+   * printed program and the caption the visualizer shows. Acts may also be
+   * appended one at a time with {@link act}.
+   */
+  notes(notes: Omit<ShowNotes, 'acts'> & { acts?: readonly ShowAct[] }): this {
+    this.showNotes = {
+      tagline: notes.tagline,
+      music: [...notes.music],
+      acts: [...(notes.acts ?? this.showNotes?.acts ?? [])],
+      ...(notes.epilogue !== undefined ? { epilogue: notes.epilogue } : {}),
+    }
+    return this
+  }
+
+  /** Append one act (title, starting anchor, guest-facing note) to the program notes. */
+  act(title: string, from: MusicAnchor, note: string): this {
+    const base: ShowNotes = this.showNotes ?? { tagline: '', music: [], acts: [] }
+    this.showNotes = { ...base, acts: [...base.acts, { title, from, note }] }
+    return this
+  }
+
+  /**
    * Assemble the plain Show and compile it. Throws an Error listing every
    * error-severity diagnostic; warnings ride along on compiled.diagnostics.
    */
@@ -1084,6 +1081,7 @@ class ShowBuilderImpl {
     }
     if (this.preRollSec !== undefined) show.preRollSec = this.preRollSec
     if (this.budgetDb !== undefined) show.noiseBudget = { maxSplDb: this.budgetDb }
+    if (this.showNotes !== undefined) show.notes = this.showNotes
 
     const compiled = compile(show, this.catalog, { quantize: this.quantizeGrid })
     const errors = compiled.diagnostics.filter((d) => d.severity === 'error')

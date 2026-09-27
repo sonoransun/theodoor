@@ -3,7 +3,9 @@
  *
  * Each entry is a PURE builder: call it for a fresh { show, compiled } pair.
  * Quiet variants target noise-sensitive audiences: a 100 dB@15m authoring
- * ceiling plus a summed 85 dB SPL budget at the audience listeners.
+ * ceiling plus a summed 85 dB SPL budget at the audience listeners. Every
+ * program carries guest-facing program notes (show.notes → compiled.acts)
+ * that `theodoor export --target program-notes` prints.
  */
 import type { BuildResult } from '@theodoor/core'
 import { july4, july4Quiet } from './july4.js'
@@ -12,6 +14,7 @@ import { hallows, hallowsQuiet } from './hallows.js'
 import { cosmos, cosmosQuiet } from './cosmos.js'
 import { aurora, auroraQuiet } from './aurora.js'
 import { cardstunt, cardstuntQuiet } from './cardstunt.js'
+import { vltava, vltavaQuiet } from './vltava.js'
 
 export { july4, july4Quiet } from './july4.js'
 export { nye, nyeQuiet } from './nye.js'
@@ -19,6 +22,7 @@ export { hallows, hallowsQuiet } from './hallows.js'
 export { cosmos, cosmosQuiet } from './cosmos.js'
 export { aurora, auroraQuiet } from './aurora.js'
 export { cardstunt, cardstuntQuiet } from './cardstunt.js'
+export { vltava, vltavaQuiet } from './vltava.js'
 export * from './palettes.js'
 
 export const PROGRAMS: Record<string, () => BuildResult> = {
@@ -34,4 +38,6 @@ export const PROGRAMS: Record<string, () => BuildResult> = {
   'aurora-quiet': auroraQuiet,
   cardstunt,
   'cardstunt-quiet': cardstuntQuiet,
+  vltava,
+  'vltava-quiet': vltavaQuiet,
 }

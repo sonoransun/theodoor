@@ -602,6 +602,60 @@ function afterglow(b: ShowBuilder, m: MusicRefs): void {
 }
 
 // ---------------------------------------------------------------------------
+// Program notes (the printed program) — shared by both variants
+// ---------------------------------------------------------------------------
+
+/** Four acts on the suite's marks: the liftoff, the thaxted entrance, perihelion. */
+function programNotes(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
+  b.notes({
+    tagline: quiet
+      ? 'Time-of-flight is the theme: hear the thunder lag the flash, then hear it repaired — the quiet performance: the boom you feel, not hear.'
+      : 'Time-of-flight is the theme: hear the thunder lag the flash — then hear it repaired.',
+    music: [
+      'Richard Strauss — Also sprach Zarathustra, sunrise (1896)',
+      'Johann Strauss II — The Blue Danube (1866)',
+      'Gustav Holst — Jupiter, from The Planets (1916)',
+    ],
+    epilogue: 'Light and sound, for once, arriving together.',
+  })
+  b.act(
+    'I — Sunrise',
+    m.time(0),
+    'Before the music, a starfield rains in across the phones on the lawn: the second and a ' +
+      'half each phone takes to hear its command is the spectacle. Mission-control whispers rove ' +
+      'the front corners. On the first sunrise, one gold comet — count the delay before its ' +
+      'report reaches you. That is old physics. On the third sunrise the same comet from the ' +
+      'same rack, but now its thunder rides a directional beam sent early by exactly the time ' +
+      'sound needs to reach your seat: light and sound together. Daybreak lands white bursts ' +
+      'with their thunder and a thump in every wristband.',
+  )
+  b.act(
+    'II — Orbit',
+    m.annotation('accent', 0, 'liftoff'),
+    'Liftoff: the lancework gantry glows and 120 drones spiral into a galaxy, then settle into ' +
+      'a planetary orrery that turns for a full minute. A comet formation crosses the sky ' +
+      'trailing its own sound; a flyover swoops front to back. The crowd waves in three-four, ' +
+      'silver crossettes twirl and the wristbands sparkle back two beats later. Every waltz ' +
+      'shell carries its thunder with it.',
+  )
+  b.act(
+    'III — Jupiter',
+    m.annotation('accent', 0, 'thaxted'),
+    'JUPITER scrolls across the wristbands under aurora curtains while the hymn sings from the ' +
+      'orrery in crossed stereo beds. Gold floods the lawn, wheels spin on the racks, tagged ' +
+      'willows hang over the phrase ends. The Jovian climax: a 25-second barrage into a triple ' +
+      'burst, each with thunder from its own array, the galaxy blooming gold as the crowd ' +
+      'strobes white.',
+  )
+  b.act(
+    'IV — Perihelion',
+    m.hit('perihelion', 0),
+    'Sixty drones spell IO — the moon joke. Gold sweeps close the sky, a farewell whisper walks ' +
+      'the front row seat by seat toward the west corner, and the canvas goes dark.',
+  )
+}
+
+// ---------------------------------------------------------------------------
 // The show
 // ---------------------------------------------------------------------------
 
@@ -621,6 +675,7 @@ function buildCosmos(variant: 'standard' | 'quiet'): BuildResult {
     .preRoll(PRE_ROLL_SEC)
     .quantize('none')
   if (quiet) b.noiseBudget(85)
+  programNotes(b, m, quiet)
 
   // --- ACT 1: SUNRISE --------------------------------------------------------
   openingSky(b, m)

@@ -43,6 +43,18 @@ import { buildLaserCues, laserFramesAt, type LaserCueSim } from './lasers.js'
 import { buildPanelCues, PanelRenderer } from './panels.js'
 import { buildCrowdCues, countLitCrowdCells, CrowdField, type CrowdCueSim } from './crowd.js'
 import { beamLandingErrorSecMax, beamStatesAt, buildBeamCues, type BeamCueSim } from './beams.js'
+import {
+  buildFountainCues,
+  fountainCrestErrorSecMax,
+  jetStatesAt,
+  type FountainCueSim,
+} from './fountains.js'
+import {
+  deriveLightChains,
+  lightArrivalLagSecMax,
+  lightStatesAt,
+  type BankTimeline,
+} from './lights.js'
 import type { SimStats } from './stats.js'
 
 export interface SimEngineOptions {
@@ -84,6 +96,13 @@ export class SimEngine {
   private readonly beamOpts: SplBeamOpts & { sourceGroundAt: SourceGroundResolver }
   /** Solver time-of-flight cross-check, computed once at construction. */
   private readonly beamLandingErrSecMax: number
+  private readonly fountainCues: readonly FountainCueSim[]
+  /** Solver valve+rise cross-check, computed once at construction. */
+  private readonly fountainCrestErrSecMax: number
+  /** Searchlight bank chains — the same single-owner derivation the solver adopted. */
+  private readonly lightChains: readonly BankTimeline[]
+  /** Squeezed-slew cross-check: how late the latest head arrives, once per show. */
+  private readonly lightArrivalLagSecMax: number
   private readonly listeners: readonly Vec2[]
   private readonly knownCueIds: ReadonlySet<string>
   private readonly staticDiagnostics: readonly Diagnostic[]
@@ -97,6 +116,8 @@ export class SimEngine {
   private peakDrones = 0
   private peakCrowdCellsLit = 0
   private peakActiveBeams = 0
+  private peakActiveJets = 0
+  private peakActiveLights = 0
   private splPeak: number[] = []
 
   constructor(compiled: CompiledShow, opts: SimEngineOptions = {}) {
@@ -132,9 +153,16 @@ export class SimEngine {
       sourceGroundAt: sourceGroundResolver(compiled, this.getEffect),
     }
     this.beamLandingErrSecMax = beamLandingErrorSecMax(this.beamCues, compiled.show.site)
+    this.fountainCues = buildFountainCues(compiled, this.getEffect)
+    this.fountainCrestErrSecMax = fountainCrestErrorSecMax(this.fountainCues, compiled.show.site)
+    this.lightChains = deriveLightChains(compiled, this.getEffect)
+    this.lightArrivalLagSecMax = lightArrivalLagSecMax(this.lightChains)
     this.listeners = compiled.show.site.refListenerPos
     this.knownCueIds = new Set(compiled.cues.map((c) => c.id))
-    this.staticDiagnostics = timelines.flatMap((t) => t.diagnostics)
+    this.staticDiagnostics = [
+      ...timelines.flatMap((t) => t.diagnostics),
+      ...this.lightChains.flatMap((b) => b.diagnostics),
+    ]
 
     this.reset()
   }
@@ -149,6 +177,8 @@ export class SimEngine {
     this.peakDrones = 0
     this.peakCrowdCellsLit = 0
     this.peakActiveBeams = 0
+    this.peakActiveJets = 0
+    this.peakActiveLights = 0
     this.splPeak = this.listeners.map(() => -Infinity)
     this.stepOnce(0)
   }
@@ -191,6 +221,10 @@ export class SimEngine {
       landingAccuracyM,
       peakCrowdCellsLit: this.peakCrowdCellsLit,
       peakActiveBeams: this.peakActiveBeams,
+      peakActiveJets: this.peakActiveJets,
+      peakActiveLights: this.peakActiveLights,
+      lightArrivalLagSecMax: this.lightArrivalLagSecMax,
+      fountainCrestErrorSecMax: this.fountainCrestErrSecMax,
       beamLandingErrorSecMax: this.beamLandingErrSecMax,
       splPeakByListener: [...this.splPeak],
       warningCount: this.warnings().length,
@@ -258,6 +292,14 @@ export class SimEngine {
       // rack) — the same track the steering exporter and exposure gate use.
       out.beams = beamStatesAt(this.beamCues, t, this.compiled.show.site, this.beamOpts)
       if (out.beams.length > this.peakActiveBeams) this.peakActiveBeams = out.beams.length
+    }
+    if (this.fountainCues.length > 0) {
+      out.jets = jetStatesAt(this.fountainCues, t, { beats: this.compiled.show.music.beats })
+      if (out.jets.length > this.peakActiveJets) this.peakActiveJets = out.jets.length
+    }
+    if (this.lightChains.length > 0) {
+      out.lights = lightStatesAt(this.lightChains, t, { beats: this.compiled.show.music.beats })
+      if (out.lights.length > this.peakActiveLights) this.peakActiveLights = out.lights.length
     }
 
     for (let i = 0; i < this.listeners.length; i++) {

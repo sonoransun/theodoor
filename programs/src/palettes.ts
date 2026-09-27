@@ -32,6 +32,15 @@ export const MOONLIGHT = {
   indigo: '#1c2246',
 } as const
 
+/** Vltava — The River: spring blue-white, meadow gold, moon silver, rapids violet. */
+export const RIVER = {
+  spring: '#9fdcff',
+  meadow: '#ffd27a',
+  moon: '#e6ecf5',
+  rapids: '#7a5cd9',
+  deep: '#163a6b',
+} as const
+
 /** RGB tuples (0..1) for drone/panel params. */
 export const RGB = {
   red: [0.72, 0.07, 0.16],
@@ -48,4 +57,8 @@ export const RGB = {
   starlight: [1, 0.97, 0.84],
   moon: [0.87, 0.9, 0.94],
   indigo: [0.11, 0.13, 0.27],
+  spring: [0.62, 0.86, 1],
+  meadow: [1, 0.82, 0.48],
+  rapids: [0.48, 0.36, 0.85],
+  deep: [0.09, 0.23, 0.42],
 } as const

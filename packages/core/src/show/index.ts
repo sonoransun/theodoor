@@ -26,8 +26,18 @@ export {
 // Aliased: 'DroneCuePlan' is already exported from export/waypoints.ts.
 export type { DroneCuePlan as SolverDroneCuePlan, SolveOptions, SolveResult } from './solve.js'
 export { QUIET_VARIANT_MAX_DB, validateShow } from './validate.js'
-export { compile } from './compile.js'
-export { musicRefs, showBuilder } from './builder.js'
+export { compile, resolveActs } from './compile.js'
+export { musicRefs, showBuilder, TrackBuilder } from './builder.js'
+export type { TrackOwner } from './builder.js'
+export type {
+  FountainCascadeSpec as BuilderFountainCascadeSpec,
+  FountainJetSpec as BuilderFountainJetSpec,
+  FountainWaveSpec as BuilderFountainWaveSpec,
+} from './builderFountains.js'
+export type {
+  LightConvergeSpec as BuilderLightConvergeSpec,
+  LightFigureSpec as BuilderLightFigureSpec,
+} from './builderLights.js'
 // Aliased: choreo/generators/pyro.ts already exports ChaseSpec / VolleySpec,
 // and generators/crowd.ts / beam.ts export their own same-named cue specs.
 export type {

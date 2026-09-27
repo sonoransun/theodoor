@@ -39,6 +39,22 @@ describe('cosmos (standard)', () => {
     expect(std.show.music.id).toBe('cosmos-suite')
   })
 
+  it('carries program notes: acts in order, chronological, shared by both variants', () => {
+    const titles = (r: BuildResult) => r.compiled.acts!.map((a) => a.title)
+    expect(titles(std)).toEqual(['I — Sunrise', 'II — Orbit', 'III — Jupiter', 'IV — Perihelion'])
+    expect(titles(quiet)).toEqual(titles(std))
+    const acts = std.compiled.acts!
+    for (let i = 1; i < acts.length; i++) {
+      expect(acts[i]!.fromSec).toBeGreaterThan(acts[i - 1]!.fromSec)
+      expect(acts[i - 1]!.toSec).toBe(acts[i]!.fromSec)
+    }
+    expect(std.show.notes?.music.length).toBeGreaterThan(0)
+    expect(std.show.notes?.tagline).not.toBe(quiet.show.notes?.tagline)
+    expect(acts.every((a) => a.note.length > 40)).toBe(true)
+    expect(std.compiled.diagnostics.some((d) => d.code === 'ACT_UNRESOLVED')).toBe(false)
+    expect(acts[2]!.fromSec).toBe(std.show.music.annotations.find((a) => a.label === 'thaxted')!.time)
+  })
+
   it('carries the three suite climaxes with jovian as the lone strength-1 peak', () => {
     const climaxes = annotationsOfKind(std.show.music, 'climax')
     expect(climaxes.map((c) => c.label)).toEqual(['daybreak', 'waltzPeak', 'jovian'])

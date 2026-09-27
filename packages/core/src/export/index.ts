@@ -17,12 +17,16 @@ export { FIRING_SCRIPT_COLUMNS, PINS_PER_MODULE, firingScriptCsv } from './firin
 
 export {
   ARTDMX_HEADER_LENGTH,
+  FOUNTAIN_SLOTS,
   LASER_SLOTS,
   PANEL_PIXELS_PER_UNIVERSE,
+  SEARCHLIGHT_SLOTS,
   buildArtDmx,
+  fountainPatch,
   laserPatch,
   panelPatch,
   renderDmxPackets,
+  searchlightPatch,
   type ArtDmxParams,
   type ChannelPatch,
   type DmxFrame,
@@ -49,6 +53,14 @@ export {
 } from './ilda.js'
 
 export { cueSheetMarkdown, formatMmSsD } from './cueSheet.js'
+
+export {
+  actHeading,
+  formatClock,
+  keystoneParagraph,
+  lookForLine,
+  programNotesMarkdown,
+} from './programNotes.js'
 
 export {
   CROWD_BROADCAST_COLUMNS,

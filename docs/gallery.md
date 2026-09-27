@@ -23,6 +23,24 @@ A 16-second window sampled at 4 fps: the 140-drone orrery, pad-2's comet crossin
 with its chasing beam tag, a thunder-tagged waltz shell (closed-form burst rosette),
 and the crowd band waving in 3/4.
 
+### Vltava — the broad river
+
+![Animated loop of the river program's climax: gold brocades with beam-delivered thunder, nine water columns cresting on both banks, white searchlight pillars, a drone bloom, and the crowd flooding gold](gallery/hero-vltava-broad-river.svg)
+
+Sixteen seconds around the strength-1 climax of *Vltava — The River*: the rapids
+barrage resolves into three gold brocades (each with beam-delivered thunder), nine
+45 m shooters crest on both banks, white pillars stand at the ends of the line, the
+fleet blooms gold, and the crowd floods — all landing on one beat.
+
+### Vltava — moonlight
+
+![One simulator snapshot at the river program's moonlight accent: eight searchlight beams converging into a spire, a crescent formation, a single 45 m water column at its crest, and a dim blue lawn](gallery/scene-vltava-moonlight.svg)
+
+Half a second after the 'moonlight' accent: the two banks' heads have slewed into a
+spire that hangs as the moon, the crescent holds over pad-2, and the first nymph
+shooter is at its 45 m crest — commanded 3.18 s early so the water, not the light,
+is what lands on the chime.
+
 ## The keystone
 
 Everything in Theodoor pivots on one identity: `fireSec = targetSec − anticipationSec`.
@@ -45,6 +63,17 @@ flowchart LR
   fl --> f
   z --> f
 ```
+
+### One landing, six kinds of physics
+
+![Chart of seven cues firing early by medium-specific anticipation: drone morph, shell rise, water rise, time-of-flight, broadcast latency, and searchlight slew](gallery/keystone-vltava-broad-river.svg)
+
+The river program's climax from real solver output: the gold bloom's 14.5 s morph,
+the brocades' 4.2 s rise, the shooters' 3.18 s of valve latency plus water rise, the
+thunder tags' 0.66 s of sound flight, the wristband flood's 0.08 s broadcast lead —
+one `targetSec`, five different `fireSec`; the pillars need no slew (their heads are
+already vertical), and the castle spire that follows shows the slew lead landing on
+the Vyšehrad chorale.
 
 ### One beat, four kinds of physics
 
@@ -83,6 +112,31 @@ flowchart TD
   e --> out["CompiledShow + diagnostics"]
 ```
 
+## Water & light
+
+The two newest media are lighting-desk fixtures with real kinematics in their timing.
+
+### The column crests on the beat
+
+![Water column height against time: valve latency, ballistic rise, crest on the beat, hold, fall](gallery/physics-fountain-rise.svg)
+
+The 45 m shooter charted from the fountain sim's own closed form: the valve opens at
+`fireSec`, water appears after the bank's 0.15 s latency, the column rises on
+`h = v₀τ − gτ²/2` and crests exactly on the beat — an anticipation of
+`0.15 + √(2·45/9.81) = 3.18 s`, the shell's rise time in water. It holds through the
+cue's window and falls dry at the end of it.
+
+### Slew as anticipation
+
+![Head tilt against time for two consecutive searchlight figures: slew from park to beat one, then from the previous aim to beat two](gallery/physics-searchlight-slew.svg)
+
+A searchlight bank's heads are chained like a drone pad's formations: the first figure
+slews from park (straight up) and arrives on beat one; the second departs the first
+figure's *end aim*, not park, and arrives on beat two. Each lead is the largest head's
+angular distance over the bank's slew rate, with the same 1.1× margin the sim chain
+uses — a squeezed slew surfaces as a `sim/light-slew-short` warning, never a silent
+correction.
+
 ## Site & geometry
 
 ### The flagship venue
@@ -90,9 +144,11 @@ flowchart TD
 ![Top-down venue map with racks, pads, towers, masts, beam arrays, throw arcs, and the 38-by-9 crowd grid](gallery/site-lakeside-park.svg)
 
 `lakesidePark()`: the 8-rack arc, two drone pads, laser towers, LED panels, two
-crowd masts, and six directional-audio arrays with their horizon-bounded throw arcs
+crowd masts, six directional-audio arrays with their horizon-bounded throw arcs
 (25 m north masts ≈ 267 m, 16 m in-lawn delay towers ≈ 165 m, 8 m corner masts
-≈ 73 m). Every flagship compiles against this plan.
+≈ 73 m), two nine-nozzle fountain banks on the water behind the racks, and two
+four-head searchlight banks at the ends of the line. Every flagship compiles against
+this plan.
 
 ### Footprint geometry
 
@@ -116,9 +172,18 @@ nothing in the sky.
 
 ![Full show timeline with per-lane cues and hatched anticipation lead-ins](gallery/timeline-hallows.svg)
 
-All seven lanes over ~4.3 minutes. The hatching before each cue body is its
+All nine lanes over ~4.3 minutes (the fountain and searchlight lanes stay dark — the
+haunting has no use for water or light until dawn). The hatching before each cue body is its
 anticipation — the twelve everywhere-at-once bell strikes carry visibly long
 time-of-flight leads on the Beams lane.
+
+### Vltava — all nine lanes
+
+![Full nine-lane show timeline of the river program with act bands and hatched anticipation lead-ins](gallery/timeline-vltava.svg)
+
+Every lane carries cues: the fountain lane's long hatched lead-ins are valve latency
+plus ballistic rise; the searchlight lane's short ones are solved head slews. Act
+bands come from the program notes.
 
 ### Fleet kinematics
 

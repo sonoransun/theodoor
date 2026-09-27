@@ -9,9 +9,12 @@
  *   to targetSec, derive anticipationSec from the catalog (pyro rise, 0.1 s
  *   fabrication latency, 0 laser/panel), from planMorph() over the pad's
  *   sequential formation chain (drone), from the mast's p95 command latency
- *   for the effect's channel (crowd, {@link crowdLatencyFor}), or from the
+ *   for the effect's channel (crowd, {@link crowdLatencyFor}), from the
  *   acoustic time-of-flight to the landing aim (beam,
- *   {@link beamAnticipationSec}), then fireSec = target − ant. Beam cues
+ *   {@link beamAnticipationSec}), from the bank's valve latency plus the
+ *   column's ballistic rise (fountain, sim/fountains fountainAnticipationSec),
+ *   or from the head slew since the bank's previous figure (searchlight,
+ *   sim/lights searchlightSlewSec), then fireSec = target − ant. Beam cues
  *   carrying params.sourceCueId are then link-checked on the phase-1
  *   landings: a reference that is not a compiled drone/pyro cue errors
  *   BEAM_SOURCE_UNRESOLVED; disjoint active windows warn
@@ -31,6 +34,12 @@
  *     e. SPL budget (only when show.noiseBudget is set) → substitute quieter
  *        effects (opts.substitute, default defaultQuietSubstitute) or drop
  *        cues, to a fixpoint over at most MAX_SPL_ROUNDS, else SPL_BUDGET.
+ *
+ * SEARCHLIGHT CHAIN INVARIANT (the drone pattern, for light): head chains are
+ * not stored on CompiledCue either — sim/lights deriveLightChains re-derives
+ * them from the compiled searchlight cues, and the FINAL pass below adopts
+ * its departures as fireSec, so a compiled searchlight cue's fireSec IS the
+ * instant its heads begin to slew.
  *
  * DRONE PLAN INVARIANT: morph plans are NOT stored on CompiledCue. They are
  * pure functions of (compiled drone cues, site fleet limits, per-cue seeds):
@@ -58,6 +67,7 @@ import type {
   Show,
   SitePlan,
   Vec2,
+  Vec3,
 } from '../contracts.js'
 import { SPEED_OF_SOUND_MPS, SPL_REF_DISTANCE_M } from '../contracts.js'
 import type { Catalog } from '../catalog/index.js'
@@ -79,6 +89,14 @@ import { beamAimAt, beamLandingTofSec, beamSourceAsset, beamTargetAt } from '../
 import { crowdGridFor, crowdMastFor } from '../site/crowdGrid.js'
 import { cueSourcePos, splAtDistance, splAtInstant, quietReport } from '../acoustics/index.js'
 import { derivePadTimelines } from '../sim/drones.js'
+import { fountainAnticipationSec } from '../sim/fountains.js'
+import { deriveLightChains, searchlightSlewSec } from '../sim/lights.js'
+import {
+  LIGHT_PARK_DIR,
+  bankHeadBases,
+  figureAimsAt,
+  searchlightBankSpecOf,
+} from '../choreo/generators/searchlight.js'
 import { annotationsOfKind } from '../music/index.js'
 import { resolveAnchor } from './anchors.js'
 
@@ -281,6 +299,10 @@ function categoryOf(e: EffectDef): string {
       return e.pattern
     case 'beam':
       return e.program
+    case 'fountain':
+      return e.jet
+    case 'searchlight':
+      return e.figure
   }
 }
 
@@ -443,6 +465,14 @@ export function solve(show: Show, catalog: Catalog, opts: SolveOptions = {}): So
         if (cue.positionId !== undefined) standIn.positionId = cue.positionId
         if (cue.params !== undefined) standIn.params = cue.params
         anticipationSec = beamAnticipationSec(show.site, standIn, effect)
+      } else if (effect.medium === 'fountain') {
+        // Valve latency + ballistic rise to the requested crest: the column
+        // is commanded early so it CRESTS on the beat.
+        anticipationSec = fountainAnticipationSec(show.site, cue, effect)
+      } else if (effect.medium === 'searchlight') {
+        // Placeholder: the slew estimate is chained per bank in LANDING order
+        // right after this loop (authoring order must not change a landing).
+        anticipationSec = 0
       } else {
         anticipationSec = catalog.anticipationSec(effect)
       }
@@ -462,6 +492,42 @@ export function solve(show: Show, catalog: Catalog, opts: SolveOptions = {}): So
       if (cue.positionId !== undefined) work.positionId = cue.positionId
       if (cue.params !== undefined) work.params = cue.params
       cues.push(work)
+    }
+  }
+
+  // ---- searchlight slew estimates: bank chains in LANDING order --------------
+  // The kinematic ideal (unclamped) per cue, chained from park through each
+  // figure's END aim in (targetSec, id) order — the same order sim/lights
+  // deriveLightChains walks, so authoring order can never change which beat a
+  // figure lands on. The FINAL pass below adopts the sim's clamped departures.
+  {
+    const byBank = new Map<string, WorkCue[]>()
+    for (const c of cues) {
+      if (c.medium !== 'searchlight') continue
+      const key = c.positionId ?? ''
+      const list = byBank.get(key)
+      if (list) list.push(c)
+      else byBank.set(key, [c])
+    }
+    for (const key of [...byBank.keys()].sort(cmpStr)) {
+      const list = byBank.get(key)!.sort((a, b) => a.targetSec - b.targetSec || cmpStr(a.id, b.id))
+      const asset = show.site.assets.find((a) => a.id === key) ?? {
+        id: key,
+        kind: 'searchlightBank' as const,
+        pos: v2(0, 0),
+        headingDeg: 0,
+        elevationM: 0,
+      }
+      const spec = searchlightBankSpecOf(asset)
+      let prevDirs: readonly Vec3[] = bankHeadBases(asset, spec).map(() => LIGHT_PARK_DIR)
+      for (const c of list) {
+        const effect = catalog.find(c.effectId)
+        if (!effect || effect.medium !== 'searchlight') continue
+        const opening = figureAimsAt(c, effect, asset, c.targetSec, { beats: tl.beats })
+        c.anticipationSec = searchlightSlewSec(spec, prevDirs, opening)
+        c.fireSec = c.targetSec - c.anticipationSec
+        prevDirs = figureAimsAt(c, effect, asset, c.targetSec + c.durationSec, { beats: tl.beats })
+      }
     }
   }
 
@@ -543,6 +609,8 @@ export function solve(show: Show, catalog: Catalog, opts: SolveOptions = {}): So
   // pass clamps their departure to the transport start (squeezed windows
   // surface as 'sim/morph-window-short' warnings). The forward shift attempt
   // still runs — it genuinely widens the flight window when it succeeds.
+  // Searchlight cues are exempt the same way: the FINAL light pass clamps the
+  // slew departure (squeezed slews surface as 'sim/light-slew-short').
   const hasDronePad = show.site.assets.some(
     (a) => a.kind === 'dronePad' && a.fleet !== undefined,
   )
@@ -560,6 +628,7 @@ export function solve(show: Show, catalog: Catalog, opts: SolveOptions = {}): So
       }
     }
     if (!fixed && c.medium === 'drone' && hasDronePad) continue
+    if (!fixed && c.medium === 'searchlight') continue
     if (!fixed) {
       const earliest = c.anticipationSec - preRoll
       diagnostics.push({
@@ -672,6 +741,11 @@ export function solve(show: Show, catalog: Catalog, opts: SolveOptions = {}): So
           c.anticipationSec = beamAnticipationSec(show.site, c, newEffect)
         } else if (newEffect.medium === 'crowd') {
           c.anticipationSec = crowdLatencyFor(show.site, c.positionId, newEffect.channel)
+        } else if (newEffect.medium === 'fountain') {
+          c.anticipationSec = fountainAnticipationSec(show.site, c, newEffect)
+        } else if (newEffect.medium === 'searchlight') {
+          // Keep the phase-1 slew estimate; the FINAL light pass re-derives
+          // the chain against the substituted figure anyway.
         } else {
           c.anticipationSec = catalog.anticipationSec(newEffect)
         }
@@ -808,6 +882,32 @@ export function solve(show: Show, catalog: Catalog, opts: SolveOptions = {}): So
           c.fireSec = seg.startSec
         }
         diagnostics.push(...padTl.diagnostics)
+      }
+    }
+  }
+
+  // ---- FINAL searchlight timing: adopt the sim's own bank-chain departures ---
+  // Same discipline as the drones: sim/lights deriveLightChains is the single
+  // owner of head slews, so a compiled searchlight cue's fireSec IS the
+  // instant its heads leave their previous aim. Departures are clamped to the
+  // transport start and to the previous figure's hold end; squeezed slews
+  // surface as 'sim/light-slew-short' warnings (never NEGATIVE_FIRE).
+  {
+    const surviving = cues.filter((c) => !dropped.has(c.id))
+    if (surviving.some((c) => c.medium === 'searchlight')) {
+      const provisional: CompiledShow = {
+        show,
+        cues: surviving.slice().sort(compiledCueOrder),
+        diagnostics: [],
+      }
+      for (const bank of deriveLightChains(provisional, getEffect)) {
+        for (const seg of bank.segments) {
+          const c = byId.get(seg.cue.id)
+          if (c === undefined || dropped.has(c.id)) continue
+          c.anticipationSec = c.targetSec - seg.startSec
+          c.fireSec = seg.startSec
+        }
+        diagnostics.push(...bank.diagnostics)
       }
     }
   }

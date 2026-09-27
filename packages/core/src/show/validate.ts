@@ -10,7 +10,9 @@
  *   'POSITION_UNRESOLVED' positionId not among site.assets (error)
  *   'POSITION_KIND'       asset kind does not suit the medium (error):
  *                         pyro→mortarRack, drone→dronePad, laser→laserTower,
- *                         panel→panel; fabrication mounts on any asset
+ *                         panel→panel, crowd→crowdMast, beam→beamArray,
+ *                         fountain→fountainBank, searchlight→searchlightBank;
+ *                         fabrication mounts on any asset
  *   catalog/param-*       cue params forwarded from catalog validateParams
  *   'QUIET_VARIANT'       meta.variant 'quiet' with an effect louder than
  *                         QUIET_VARIANT_MAX_DB at the reference distance (error)
@@ -30,6 +32,8 @@ const POSITION_KIND_FOR: Readonly<Partial<Record<Medium, AssetKind>>> = {
   panel: 'panel',
   crowd: 'crowdMast',
   beam: 'beamArray',
+  fountain: 'fountainBank',
+  searchlight: 'searchlightBank',
   // fabrication: any asset
 }
 

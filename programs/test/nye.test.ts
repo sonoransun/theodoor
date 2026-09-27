@@ -35,6 +35,26 @@ describe('nye programs', () => {
     expect(qt.show.noiseBudget).toEqual({ maxSplDb: 85 })
   })
 
+  it('carries program notes: acts in order, chronological, shared by both variants', () => {
+    const titles = (r: BuildResult) => r.compiled.acts!.map((a) => a.title)
+    expect(titles(std)).toEqual(['I — Old Acquaintance', 'II — The Clock', 'III — Countdown', 'IV — Midnight', 'V — The Reprise'])
+    expect(titles(qt)).toEqual(titles(std))
+    const acts = std.compiled.acts!
+    for (let i = 1; i < acts.length; i++) {
+      expect(acts[i]!.fromSec).toBeGreaterThan(acts[i - 1]!.fromSec)
+      expect(acts[i - 1]!.toSec).toBe(acts[i]!.fromSec)
+    }
+    expect(std.show.notes?.music.length).toBeGreaterThan(0)
+    expect(std.show.notes?.tagline).not.toBe(qt.show.notes?.tagline)
+    expect(acts.every((a) => a.note.length > 40)).toBe(true)
+    expect(std.compiled.diagnostics.some((d) => d.code === 'ACT_UNRESOLVED')).toBe(false)
+    const midnight = std.show.music.annotations.find((a) => a.label === 'midnight')!.time
+    expect(acts[3]!.fromSec).toBe(midnight)
+    // The countdown act opens on digit 9's landing.
+    const nine = std.compiled.cues.find((c) => c.id === 'nye-cd-000')!
+    expect(acts[2]!.fromSec).toBeCloseTo(nine.targetSec, 9)
+  })
+
   it('both variants are deterministic (JSON-identical on rebuild)', () => {
     const std2 = nye()
     const qt2 = nyeQuiet()

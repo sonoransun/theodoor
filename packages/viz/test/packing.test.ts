@@ -26,6 +26,7 @@ function makeSnapshot(): SimSnapshot {
       count: 2,
       // (x, y, z): world center of fit rect, then east edge; y (depth) ignored.
       pos: new Float32Array([0, 17, 122.5, 160, -4, 122.5]),
+      vel: new Float32Array(6),
       rgb: new Float32Array([1, 0.5, 0.25, 0, 1, 0.125]),
       brightness: new Float32Array([0.8, 0.4]),
       sizeM: new Float32Array([2, 4]),
@@ -41,6 +42,8 @@ function makeSnapshot(): SimSnapshot {
     panelFrames: [],
     crowd: { cellCount: 0, rgb: new Float32Array(0), white: new Float32Array(0) },
     beams: [],
+    jets: [],
+    lights: [],
     splByListener: [-Infinity],
   }
 }

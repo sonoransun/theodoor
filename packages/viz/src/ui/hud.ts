@@ -9,10 +9,13 @@
  *     (audio/beamMath.worstCellCarrierDb), scale 60–130 dB with an amber
  *     line at the dwell level (100) and a red line at the ceiling (110);
  *   - the audition-seat readout ('sit: Front-Center', beam shows only);
+ *   - the ACT CAPTION: the program-note act the playhead is in (title +
+ *     guest-facing note, from CompiledShow.acts via setActs), fading in and
+ *     out at act boundaries through a CSS transition; hidden without notes;
  *   - a small FPS meter.
  */
 
-import type { SimSnapshot, Vec2 } from '@theodoor/core'
+import type { CompiledAct, SimSnapshot, Vec2 } from '@theodoor/core'
 import { worstCellCarrierDb } from '../audio/beamMath.js'
 import { h } from './dom.js'
 
@@ -42,6 +45,19 @@ export function exposureFrac(db: number): number {
 function meterFrac(db: number, minDb: number, maxDb: number): number {
   if (!Number.isFinite(db)) return 0
   return Math.min(1, Math.max(0, (db - minDb) / (maxDb - minDb)))
+}
+
+/**
+ * The act the playhead is in: the last act with fromSec ≤ t whose toSec is
+ * still ahead (acts are sorted ascending by compile()). Undefined during the
+ * pre-roll before the first act and after the last act ends.
+ */
+export function actAt(acts: readonly CompiledAct[], tSec: number): CompiledAct | undefined {
+  let hit: CompiledAct | undefined
+  for (const a of acts) {
+    if (a.fromSec <= tSec && tSec < a.toSec) hit = a
+  }
+  return hit
 }
 
 /** Peak-hold state machine shared by both meters (hold, then decay). */
@@ -76,6 +92,8 @@ export interface Hud {
   setExposureCells(cells: readonly Vec2[] | undefined): void
   /** Audition-seat readout label (null hides it). */
   setSeat(label: string | null): void
+  /** Program-note acts for the caption overlay (empty hides it). */
+  setActs(acts: readonly CompiledAct[]): void
   update(snapshot: SimSnapshot | null, fps: number): void
 }
 
@@ -83,6 +101,10 @@ export function createHud(nowMs: () => number = () => performance.now()): Hud {
   const badge = h('div', { class: 'sim-badge' }, '● SIMULATION')
   const fpsMeter = h('div', { class: 'fps-meter' }, '– fps')
   const seatReadout = h('div', { class: 'hud-seat', hidden: true })
+  const captionTitle = h('div', { class: 'hud-caption-title' })
+  const captionNote = h('div', { class: 'hud-caption-note' })
+  const caption = h('div', { class: 'hud-caption' }, captionTitle, captionNote)
+  let captionKey = ''
 
   const meterCanvas = h('canvas', { class: 'spl-meter', width: '46', height: '220' })
   const exposureCanvas = h('canvas', {
@@ -92,10 +114,21 @@ export function createHud(nowMs: () => number = () => performance.now()): Hud {
     hidden: true,
     title: 'Worst-cell summed carrier exposure',
   })
-  const wrap = h('div', { class: 'hud-root' }, badge, fpsMeter, seatReadout, meterCanvas, exposureCanvas)
+  const wrap = h(
+    'div',
+    { class: 'hud-root' },
+    badge,
+    fpsMeter,
+    seatReadout,
+    meterCanvas,
+    exposureCanvas,
+    caption,
+  )
 
   let budgetDb: number | undefined
   let exposureCells: readonly Vec2[] | undefined
+  /** Program-note acts (the caption overlay reads these against snapshot.t). */
+  let currentActs: readonly CompiledAct[] = []
   const splPeak = makePeakTracker(nowMs, SPL_MIN_DB)
   const exposurePeak = makePeakTracker(nowMs, EXPOSURE_MIN_DB)
   let lastFpsText = ''
@@ -252,6 +285,11 @@ export function createHud(nowMs: () => number = () => performance.now()): Hud {
         seatReadout.textContent = `sit: ${label}`
       }
     },
+    setActs(acts): void {
+      currentActs = acts
+      captionKey = ''
+      caption.classList.remove('visible')
+    },
     update(snapshot, fps): void {
       let db = -Infinity
       if (snapshot) {
@@ -271,6 +309,20 @@ export function createHud(nowMs: () => number = () => performance.now()): Hud {
       if (text !== lastFpsText) {
         fpsMeter.textContent = text
         lastFpsText = text
+      }
+
+      // Act caption: only touch the DOM when the act changes.
+      const act = snapshot && currentActs.length > 0 ? actAt(currentActs, snapshot.t) : undefined
+      const key = act ? `${act.fromSec}|${act.title}` : ''
+      if (key !== captionKey) {
+        captionKey = key
+        if (act) {
+          captionTitle.textContent = act.title
+          captionNote.textContent = act.note
+          caption.classList.add('visible')
+        } else {
+          caption.classList.remove('visible')
+        }
       }
     },
   }

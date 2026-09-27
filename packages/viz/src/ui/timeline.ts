@@ -1,7 +1,8 @@
 /**
  * ui/timeline.ts — Canvas2D show timeline.
  *
- * Rows: Pyro / Drones / Lasers / Panels / Music. A cue is drawn as a hatched
+ * Rows: Pyro / Drones / Lasers / Panels / Crowd / Beams / Fountains / Lights /
+ * Music (lane colors mirror core's gallery theme). A cue is drawn as a hatched
  * anticipation lead-in over [fireSec, targetSec] (the backward-solve made
  * visible) plus a solid block over [targetSec, targetSec + durationSec].
  * The music row shows downbeat ticks, phrase brackets, and annotation
@@ -68,23 +69,32 @@ export function followView(view: TimelineView, playheadSec: number, widthPx: num
 // Rendering
 // ---------------------------------------------------------------------------
 
-interface Lane {
+export interface Lane {
   label: string
   media: readonly Medium[]
   color: string
 }
 
-const LANES: readonly Lane[] = [
+/**
+ * Cue lanes, top to bottom (the music lane is appended last). Colors match
+ * packages/core/src/gallery/theme.ts so the docs gallery and the live strip
+ * agree on what each medium looks like.
+ */
+export const LANES: readonly Lane[] = [
   { label: 'Pyro', media: ['pyro', 'fabrication'], color: '#ff9d4d' },
   { label: 'Drones', media: ['drone'], color: '#4dc3ff' },
   { label: 'Lasers', media: ['laser'], color: '#7dff8a' },
   { label: 'Panels', media: ['panel'], color: '#d98cff' },
+  { label: 'Crowd', media: ['crowd'], color: '#ffe08a' },
+  { label: 'Beams', media: ['beam'], color: '#5ee6d0' },
+  { label: 'Fountains', media: ['fountain'], color: '#5aa9ff' },
+  { label: 'Lights', media: ['searchlight'], color: '#f3e6a8' },
 ]
 
-const MUSIC_COLOR = '#ffd24d'
+export const MUSIC_COLOR = '#ffd24d'
 const HIT_COLOR = '#ffd24d'
 const CLIMAX_COLOR = '#ff5252'
-const LABEL_GUTTER_PX = 58
+const LABEL_GUTTER_PX = 66
 const RULER_PX = 16
 
 interface HoverSpot {
@@ -219,11 +229,12 @@ export class Timeline {
       g.fillText(lane ? lane.label : 'Music', 6, y + 12)
     }
 
-    // Cue blocks.
+    // Cue blocks (tight lanes keep a 2 px gutter so nine rows still read).
+    const pad = laneH >= 18 ? 4 : 2
     for (let i = 0; i < LANES.length; i++) {
       const lane = LANES[i]!
-      const y = RULER_PX + i * laneH + 4
-      const h = laneH - 8
+      const y = RULER_PX + i * laneH + pad
+      const h = laneH - 2 * pad
       for (const cue of this.compiled.cues) {
         if (!lane.media.includes(cue.medium)) continue
         this.drawCue(g, cue, y, h, lane.color, cw)

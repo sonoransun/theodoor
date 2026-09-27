@@ -274,6 +274,7 @@ export function makeSyntheticSnapshot(tSec: number): SimSnapshot {
     stars: {
       count: starCount,
       pos: starPos,
+      vel: new Float32Array(starCount * 3),
       rgb: starRgb,
       brightness: starBrightness,
       sizeM: starSize,
@@ -289,6 +290,8 @@ export function makeSyntheticSnapshot(tSec: number): SimSnapshot {
     panelFrames: [{ assetId: PANEL_ASSET_ID, w: PANEL_W, h: PANEL_H, rgb: panelRgb }],
     crowd: { cellCount: 0, rgb: new Float32Array(0), white: new Float32Array(0) },
     beams: [],
+    jets: [],
+    lights: [],
     splByListener: [spl],
   }
 }

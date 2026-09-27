@@ -98,12 +98,36 @@ describe('lakesidePark preset', () => {
     const panels = site.assets.filter((a) => a.kind === 'panel')
     const masts = site.assets.filter((a) => a.kind === 'crowdMast')
     const beams = site.assets.filter((a) => a.kind === 'beamArray')
+    const fountains = site.assets.filter((a) => a.kind === 'fountainBank')
+    const lights = site.assets.filter((a) => a.kind === 'searchlightBank')
     expect(racks).toHaveLength(8)
     expect(pads).toHaveLength(2)
     expect(lasers).toHaveLength(2)
     expect(panels).toHaveLength(2)
     expect(masts).toHaveLength(2)
     expect(beams).toHaveLength(6)
+    expect(fountains).toHaveLength(2)
+    expect(lights).toHaveLength(2)
+    expect(site.assets).toHaveLength(26)
+
+    // Fountain banks sit on the water just behind the firing line, flanking
+    // center; searchlight banks anchor the far ends of the line.
+    for (const f of fountains) {
+      expect(Math.abs(f.pos.x)).toBe(48)
+      expect(f.pos.y).toBe(14)
+      expect(f.fountainBank).toEqual({ nozzles: 9, spanM: 32, maxHeightM: 45, valveLatencySec: 0.15 })
+    }
+    for (const l of lights) {
+      expect(Math.abs(l.pos.x)).toBe(130)
+      expect(l.elevationM).toBe(1.5)
+      expect(l.searchlightBank).toEqual({
+        heads: 4,
+        spanM: 18,
+        slewRateDegPerSec: 60,
+        maxTiltDeg: 75,
+        minElevationDeg: 20,
+      })
+    }
 
     for (const r of racks) {
       expect(r.rack).toBeDefined()

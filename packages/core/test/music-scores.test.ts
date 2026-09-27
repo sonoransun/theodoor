@@ -7,7 +7,7 @@ const BARS = 32
 const TOTAL_BEATS = BARS * 4 // 128, 4/4 throughout
 
 describe('scores registry', () => {
-  it('contains the thirteen built-in scores', () => {
+  it('contains the fourteen built-in scores', () => {
     expect(Object.keys(SCORES).sort()).toEqual([
       'auldLangSyne',
       'blueDanube',
@@ -21,6 +21,7 @@ describe('scores registry', () => {
       'odeToJoy',
       'overture1812Finale',
       'starsAndStripesForever',
+      'vltava',
       'zarathustraSunrise',
     ])
     expect(getScore('odeToJoy')).toBe(odeToJoy)

@@ -79,7 +79,7 @@ Commands:
   analyze    analyze a WAV file into a musical timeline summary
   align      the backward-solve view: target/fire/anticipation per cue
   export     write show artifacts (--target firing-script|artnet|waypoints|ilda|
-             crowd-broadcast|beam-steering|cue-sheet)
+             crowd-broadcast|beam-steering|cue-sheet|program-notes)
   fab        write shop drawings / BOM (--target rack|panel|bom)
   stats      quick facts: cue counts, duration, SPL peaks, quiet pass/fail
   gallery    write the README/docs showcase SVGs (ungated design artwork)
@@ -99,7 +99,8 @@ Command options:
             --seed <n>            informational only (the seed lives in the show)
   analyze   --wav <path>          WAV file to analyze
   export    --target <t>          firing-script|artnet|waypoints|ilda|
-                                  crowd-broadcast|beam-steering|cue-sheet
+                                  crowd-broadcast|beam-steering|cue-sheet|
+                                  program-notes (guest program; ungated)
             --armed-ack <phrase>  'ARM CONFIRMED' — required for hardware targets
   fab       --target <t>          rack|panel|bom
   stats     --exposure            carrier-exposure report: worst cells + PASS/FAIL

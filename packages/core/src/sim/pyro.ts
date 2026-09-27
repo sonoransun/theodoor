@@ -34,11 +34,12 @@ import type {
   Seconds,
   Vec3,
 } from '../contracts.js'
+import { GRAVITY_MPS2 } from '../contracts.js'
 import type { EffectLookup } from '../acoustics/index.js'
 import { fnv1a32, hexToRgb, mulberry32, smoothstep } from '../math/index.js'
 import type { SimBuffers } from './snapshot.js'
 
-export const GRAVITY_MPS2 = 9.81
+export { GRAVITY_MPS2 } from '../contracts.js'
 /** Lateral drift at apogee, as a fraction of burst height (per axis, ±). */
 export const DRIFT_FRACTION = 0.03
 /** Per-star lifetime jitter range around effect.durationSec. */
@@ -90,6 +91,12 @@ export function starPosAt(s: StarBirth, a: Seconds): Vec3 {
   }
 }
 
+/** Closed-form star velocity at age `a`, m/s: v = (v₀ − v_T)·e^(−k·a) + v_T. */
+export function starVelAt(s: StarBirth, a: Seconds): Vec3 {
+  const e = Math.exp(-s.k * a)
+  return { x: s.v0.x * e, y: s.v0.y * e, z: (s.v0.z - s.vTz) * e + s.vTz }
+}
+
 /** Closed-form star brightness at age `a` (0 outside [0, life)). */
 export function starBrightnessAt(s: StarBirth, a: Seconds): number {
   if (a < 0 || a >= s.lifeSec) return 0
@@ -132,6 +139,17 @@ export function shellPosAt(p: PyroCueSim, tSinceFire: Seconds): Vec3 {
     x: p.launch.x + p.driftX * u,
     y: p.launch.y + p.driftY * u,
     z: p.launch.z + p.effect.burstHeightM * rise,
+  }
+}
+
+/** Shell tip velocity during ascent (pure): d/dt of shellPosAt, m/s. */
+export function shellVelAt(p: PyroCueSim, tSinceFire: Seconds): Vec3 {
+  const u = Math.min(1, Math.max(0, tSinceFire / p.T))
+  const du = p.T > 0 ? 1 / p.T : 0
+  return {
+    x: p.driftX * du,
+    y: p.driftY * du,
+    z: p.effect.burstHeightM * 2 * (1 - u) * du,
   }
 }
 
@@ -266,7 +284,8 @@ export function evalPyro(cues: readonly PyroCueSim[], t: Seconds, out: SimBuffer
       const [r, g, b] = isHead && p.effect.colors.length > 0
         ? hexToRgb(p.effect.colors[0]!)
         : TRACER_RGB
-      out.pushStar(pos.x, pos.y, pos.z, r, g, b, 1, TRACER_SIZE_M)
+      const vel = shellVelAt(p, t - p.fireSec)
+      out.pushStar(pos.x, pos.y, pos.z, r, g, b, 1, TRACER_SIZE_M, vel.x, vel.y, vel.z)
     }
 
     // Stars (burst / comet hang / mine column) — closed form per star.
@@ -277,7 +296,8 @@ export function evalPyro(cues: readonly PyroCueSim[], t: Seconds, out: SimBuffer
       if (brightness <= 0) continue
       const pos = starPosAt(s, a)
       if (pos.z < 0) continue // hit the ground — extinguished
-      out.pushStar(pos.x, pos.y, pos.z, s.r, s.g, s.b, brightness, s.sizeM)
+      const vel = starVelAt(s, a)
+      out.pushStar(pos.x, pos.y, pos.z, s.r, s.g, s.b, brightness, s.sizeM, vel.x, vel.y, vel.z)
     }
   }
 }

@@ -15,8 +15,11 @@
  *
  * Wiring per compiled session: Transport(compiled) + SimEngine.attach +
  * AudioClock.drive (host clock) + ScoreSynth (score shows) or WavPlayer
- * (WAV shows) + BeamAudio (shows with beam cues — the "sit here" audition,
- * seat picked in the top bar). One rAF loop renders:
+ * (WAV shows) + BeamAudio (shows with beam cues) + ReportAudio (shows with
+ * shells, set pieces, or fountains — every report arrives at the seat one
+ * acoustic time-of-flight after its flash) — the "sit here" audition, seat
+ * picked in the top bar. Every source feeds one app-level MixBus (dry +
+ * seeded lakeside reverb → limiter). One rAF loop renders:
  * renderer.render(engine.snapshot(), t), beamAudio.update(snap.beams),
  * timeline.draw(t), hud.update(snapshot). The renderer gets the session's
  * site (setSite) for the crowd/audio-beam floor-band layers; the HUD gets
@@ -26,19 +29,24 @@
  */
 
 import {
+  STARTER_CATALOG_ID,
   SimEngine,
   Transport,
   buildTimelineFromScore,
   crowdGridFor,
+  getEffectFrom,
   getScore,
   lakesidePark,
   musicRefs,
   showBuilder,
   starterCatalog,
 } from '@theodoor/core'
-import type { BuildResult, CompiledShow, CrowdGrid, Score } from '@theodoor/core'
+import type { BuildResult, CompiledShow, CrowdGrid, EffectDef, Score } from '@theodoor/core'
 import { PROGRAMS } from '@theodoor/programs'
 import { BeamAudio } from './audio/beamAudio.js'
+import { MixBus, SCORE_REVERB_SEND } from './audio/mixBus.js'
+import { ReportAudio } from './audio/reportAudio.js'
+import { hasReportableCues } from './audio/reportMath.js'
 import { ScoreSynth } from './audio/synth.js'
 import { WavPlayer, loadWavShow } from './audio/wavSource.js'
 import { AudioClock } from './clock/audioClock.js'
@@ -225,6 +233,8 @@ const ENTRIES = [
   { id: 'aurora-quiet', label: 'Midsummer Aurora (quiet 85 dB)' },
   { id: 'cardstunt', label: 'The Living Field — crowd demo' },
   { id: 'cardstunt-quiet', label: 'The Living Field (quiet 85 dB)' },
+  { id: 'vltava', label: 'Vltava — the river (water & light)' },
+  { id: 'vltava-quiet', label: 'Vltava — the river (quiet 85 dB)' },
 ] as const
 
 type Prebuilt = { ok: true; result: BuildResult } | { ok: false; error: Error }
@@ -261,16 +271,22 @@ export function startApp(appRoot: HTMLElement, stage: HTMLCanvasElement): void {
   const clock = new AudioClock()
   const hud = createHud()
 
+  // One mix bus for the life of the page: dry + lakeside reverb → limiter.
+  const bus = clock.ctx ? new MixBus(clock.ctx) : null
+
   // Audition seat: app-level so the choice survives session switches. The
-  // active session registers its BeamAudio + grid; selecting a seat retargets
-  // both immediately.
+  // active session registers its BeamAudio / ReportAudio + grid; selecting a
+  // seat retargets all of them immediately.
   let activeBeamAudio: BeamAudio | null = null
+  let activeReportAudio: ReportAudio | null = null
   let activeGrid: CrowdGrid | undefined
   const applySeat = (): void => {
-    activeBeamAudio?.setSeat(seatCellPos(activeGrid, seatCtl.current()) ?? null)
+    const seat = seatCellPos(activeGrid, seatCtl.current()) ?? null
+    activeBeamAudio?.setSeat(seat)
+    activeReportAudio?.setSeat(seat)
   }
   const seatCtl = createSeatControl((preset) => {
-    if (activeBeamAudio) hud.setSeat(preset.label)
+    if (activeBeamAudio || activeReportAudio) hud.setSeat(preset.label)
     applySeat()
   })
 
@@ -334,6 +350,8 @@ export function startApp(appRoot: HTMLElement, stage: HTMLCanvasElement): void {
   function startSynthetic(): Session {
     renderer!.setAssets(SYNTHETIC_ASSETS)
     renderer!.setSite(null)
+    renderer!.setCompiled(null)
+    hud.setActs([])
     hud.setBudget(undefined)
     hud.setExposureCells(undefined)
     hud.setSeat(null)
@@ -357,21 +375,30 @@ export function startApp(appRoot: HTMLElement, stage: HTMLCanvasElement): void {
     audio: { score?: Score; wav?: AudioBuffer },
   ): Session {
     const site = compiled.show.site
+    // One catalog resolution per session, shared by the smoke layer, the
+    // report audition, and the seat gating below.
+    const getEffect: ((id: string) => EffectDef | undefined) | null =
+      compiled.show.catalogId === STARTER_CATALOG_ID ? getEffectFrom(starterCatalog()) : null
     renderer!.setAssets(site.assets)
     renderer!.setSite(site)
+    renderer!.setCompiled(compiled, getEffect ?? undefined)
+    hud.setActs(compiled.acts ?? [])
     hud.setBudget(compiled.show.noiseBudget?.maxSplDb)
     tlStrip.removeAttribute('hidden')
     bar.setEnabled(true)
 
-    // Audience layers: crowd grid for the seat resolver, exposure meter +
-    // seat audition only for shows that actually use the beam arrays.
+    // Audience layers: crowd grid for the seat resolver, the exposure meter
+    // only for shows that actually use the beam arrays, the seat audition for
+    // any show with something to hear from a seat (beams, shells, set
+    // pieces, fountains).
     const grid = crowdGridFor(site)
     const hasBeams = compiled.cues.some((c) => c.medium === 'beam')
+    const hasReports = getEffect !== null && hasReportableCues(compiled, getEffect)
     activeGrid = grid
     hud.setExposureCells(
       hasBeams ? (grid?.cells.map((c) => c.centroid) ?? site.refListenerPos) : undefined,
     )
-    hud.setSeat(hasBeams ? seatCtl.current().label : null)
+    hud.setSeat(hasBeams || hasReports ? seatCtl.current().label : null)
 
     const warnings = compiled.diagnostics.filter((d) => d.severity === 'warning')
     if (warnings.length > 0) {
@@ -388,25 +415,49 @@ export function startApp(appRoot: HTMLElement, stage: HTMLCanvasElement): void {
     cleanups.push(engine.attach(transport))
     cleanups.push(clock.drive(transport))
 
+    const out = bus?.dry ?? clock.ctx?.destination
+    const reverbSend = bus?.reverb.input ?? null
+
     let beamAudio: BeamAudio | null = null
     if (clock.ctx && hasBeams) {
-      beamAudio = new BeamAudio(clock.ctx, compiled.cues)
+      beamAudio = new BeamAudio(clock.ctx, compiled.cues, { out, reverbSend })
       activeBeamAudio = beamAudio
-      applySeat()
       cleanups.push(() => {
         beamAudio!.dispose()
         if (activeBeamAudio === beamAudio) activeBeamAudio = null
       })
     }
 
+    // Reports: shell breaks, set pieces, water — heard at the seat one
+    // time-of-flight after they happen (the lag the cosmos program narrates).
+    let reportAudio: ReportAudio | null = null
+    if (clock.ctx && hasReports && getEffect) {
+      reportAudio = new ReportAudio(clock.ctx, compiled, getEffect, () => clock.anchor(), {
+        out,
+        reverbSend,
+      })
+      activeReportAudio = reportAudio
+      reportAudio.start()
+      cleanups.push(clock.onFlush(() => reportAudio!.flush()))
+      cleanups.push(() => {
+        reportAudio!.dispose()
+        if (activeReportAudio === reportAudio) activeReportAudio = null
+      })
+    }
+    if (beamAudio || reportAudio) applySeat()
+
     if (clock.ctx) {
       if (audio.score) {
-        const synth = new ScoreSynth(clock.ctx, audio.score, () => clock.anchor())
+        const synth = new ScoreSynth(clock.ctx, audio.score, () => clock.anchor(), {
+          out,
+          reverbSend,
+          sendLevel: SCORE_REVERB_SEND,
+        })
         synth.start()
         cleanups.push(clock.onFlush(() => synth.flush()))
         cleanups.push(() => synth.dispose())
       } else if (audio.wav) {
-        const player = new WavPlayer(clock.ctx, audio.wav)
+        const player = new WavPlayer(clock.ctx, audio.wav, out)
         const sync = (): void => player.sync(clock.anchor())
         cleanups.push(clock.onFlush(sync))
         cleanups.push(transport.on((e) => (e.type === 'transport' ? sync() : undefined)))

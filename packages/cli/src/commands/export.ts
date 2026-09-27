@@ -2,9 +2,10 @@
  * commands/export.ts — file exporters behind the safety gate.
  *
  * Targets: firing-script | artnet | waypoints | ilda | crowd-broadcast |
- * beam-steering | cue-sheet.
+ * beam-steering | cue-sheet | program-notes.
  *
- * SAFETY GATE: hardware-consumable targets (everything except cue-sheet)
+ * SAFETY GATE: hardware-consumable targets (everything except the two
+ * design artifacts, cue-sheet and the guest-facing program-notes)
  * require --armed-ack 'ARM CONFIRMED'. The command drives a real
  * SafetyMachine through arm() (interlocks: fresh site validation + site-hash
  * staleness guard, wind under limit, operator ack, carrier exposure on beam
@@ -39,6 +40,7 @@ import {
   SafetyMachine,
   beamSteeringCsv,
   beamSteeringJson,
+  buildFountainCues,
   buildIldaFile,
   buildLaserCues,
   buildPanelCues,
@@ -49,15 +51,23 @@ import {
   crowdBroadcastIndexJson,
   crowdBroadcastOverruns,
   cueSheetMarkdown,
+  deriveLightChains,
   derivePadTimelines,
   droneWaypointsCsv,
   droneWaypointsJson,
   exposureReport,
   firingScriptCsv,
+  fountainChannelsAt,
+  fountainPatch,
+  jetStatesAt,
   laserFramesAt,
   laserPatch,
+  lightStatesAt,
   panelPatch,
+  programNotesMarkdown,
   renderDmxPackets,
+  searchlightChannelsAt,
+  searchlightPatch,
   showDurationSec,
   siteHash,
   validateSite,
@@ -74,6 +84,7 @@ export const EXPORT_TARGETS = [
   'crowd-broadcast',
   'beam-steering',
   'cue-sheet',
+  'program-notes',
 ] as const
 export type ExportTarget = (typeof EXPORT_TARGETS)[number]
 
@@ -114,6 +125,13 @@ function buildCueSheet(compiled: CompiledShow, getEffect: EffectLookup): Artifac
   ]
 }
 
+/** The guest program: narrative acts + auto "look for" lines. Ungated design artifact. */
+function buildProgramNotes(compiled: CompiledShow, getEffect: EffectLookup): Artifact[] {
+  return [
+    { name: `${compiled.show.meta.id}.program.md`, data: programNotesMarkdown(compiled, getEffect) },
+  ]
+}
+
 /** Map one laser point-cloud frame onto the 8-slot laser DMX preset. */
 function laserChannels(points: readonly LaserPoint[]): Uint8Array {
   const out = new Uint8Array(LASER_SLOTS.length)
@@ -148,7 +166,9 @@ function buildArtnet(compiled: CompiledShow, getEffect: EffectLookup): Artifact[
   const site = compiled.show.site
 
   // Deterministic universe allocation, site-asset order: panels first blob of
-  // consecutive universes, lasers one universe each.
+  // consecutive universes, lasers one universe each, then fountain banks
+  // (4 ch/nozzle) and searchlight banks (6 ch/head) one universe each —
+  // water and light are DMX fixtures like any moving head.
   const patches: ChannelPatch[] = []
   let nextUniverse = 0
   for (const asset of site.assets) {
@@ -159,11 +179,20 @@ function buildArtnet(compiled: CompiledShow, getEffect: EffectLookup): Artifact[
     } else if (asset.kind === 'laserTower') {
       patches.push(laserPatch(asset.id, nextUniverse))
       nextUniverse += 1
+    } else if (asset.kind === 'fountainBank' && asset.fountainBank) {
+      patches.push(fountainPatch(asset.id, asset.fountainBank, nextUniverse))
+      nextUniverse += 1
+    } else if (asset.kind === 'searchlightBank' && asset.searchlightBank) {
+      patches.push(searchlightPatch(asset.id, asset.searchlightBank, nextUniverse))
+      nextUniverse += 1
     }
   }
 
   const laserCues = buildLaserCues(compiled, getEffect)
   const panels = new PanelRenderer(buildPanelCues(compiled, getEffect), compiled.show.music)
+  const fountainCues = buildFountainCues(compiled, getEffect)
+  const lightChains = deriveLightChains(compiled, getEffect)
+  const beats = compiled.show.music.beats
   const duration = showDurationSec(compiled)
   const tickCount = Math.max(1, Math.ceil(duration * EXPORT_FPS) + 1)
 
@@ -178,6 +207,22 @@ function buildArtnet(compiled: CompiledShow, getEffect: EffectLookup): Artifact[
     }
     for (const f of laserFramesAt(laserCues, t, compiled.show.music)) {
       if (byAsset.has(f.assetId)) byAsset.set(f.assetId, laserChannels(f.points))
+    }
+    if (fountainCues.length > 0) {
+      const jets = jetStatesAt(fountainCues, t, { beats })
+      for (const asset of site.assets) {
+        if (asset.kind === 'fountainBank' && asset.fountainBank && byAsset.has(asset.id)) {
+          byAsset.set(asset.id, fountainChannelsAt(jets, asset, asset.fountainBank))
+        }
+      }
+    }
+    if (lightChains.length > 0) {
+      const lights = lightStatesAt(lightChains, t, { beats })
+      for (const asset of site.assets) {
+        if (asset.kind === 'searchlightBank' && asset.searchlightBank && byAsset.has(asset.id)) {
+          byAsset.set(asset.id, searchlightChannelsAt(lights, asset, asset.searchlightBank))
+        }
+      }
     }
     frames.push({ tSec: t, byAsset })
   }
@@ -455,6 +500,9 @@ export async function runExport(flags: CliFlags): Promise<number> {
       case 'cue-sheet':
         artifacts = buildCueSheet(compiled, getEffect)
         break
+      case 'program-notes':
+        artifacts = buildProgramNotes(compiled, getEffect)
+        break
     }
 
     ensureOutDir(flags.out)
@@ -509,6 +557,6 @@ export async function runExport(flags: CliFlags): Promise<number> {
     if (auditPath !== undefined) lines.push(`  ${auditPath} (audit chain)`)
     printLines(lines)
   }
-  if (!gated) logErr('note: cue-sheet is a design artifact; no safety gate required')
+  if (!gated) logErr(`note: ${target} is a design artifact; no safety gate required`)
   return 0
 }

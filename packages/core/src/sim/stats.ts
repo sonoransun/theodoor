@@ -26,6 +26,22 @@ export interface SimStats {
   peakCrowdCellsLit: number
   /** Peak concurrent active beam cues across all steps. */
   peakActiveBeams: number
+  /** Peak concurrent water columns (engaged nozzles with water up). */
+  peakActiveJets: number
+  /** Peak concurrent lit searchlight heads. */
+  peakActiveLights: number
+  /**
+   * Max late arrival of searchlight heads past their landing, s — 0 when every
+   * slew fit its window (the keystone held); > 0 when a squeezed chain made
+   * heads arrive late ('sim/light-slew-short').
+   */
+  lightArrivalLagSecMax: number
+  /**
+   * Max over fountain cues of |fireSec + (valve latency + ballistic rise) −
+   * targetSec| (s) — ≈ 0 when the solver anticipated the crest; 0 without
+   * fountain cues.
+   */
+  fountainCrestErrorSecMax: number
   /**
    * Max over beam cues of |fireSec + timeOfFlight − targetSec| (s) — ≈ 0 when
    * the solver anticipated the acoustic time-of-flight; 0 without beam cues.

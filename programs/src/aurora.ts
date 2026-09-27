@@ -398,6 +398,51 @@ function actThreeSleep(b: ShowBuilder, m: MusicRefs): void {
   })
 }
 
+/**
+ * Program notes (the printed program), shared by both variants: three acts on
+ * the suite's own accents — firstStar, moonrise, adagio.
+ */
+function programNotes(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
+  b.notes({
+    tagline: quiet
+      ? 'The crowd is the display; the sky only joins once you have painted it yourselves. The quiet performance is the same show — it was already quiet.'
+      : 'The crowd is the display; the sky only joins once you have painted it yourselves.',
+    music: [
+      'Erik Satie — Gymnopédie No. 1 (1888)',
+      'Claude Debussy — Clair de Lune (1905)',
+      'Ludwig van Beethoven — Piano Sonata No. 14, Adagio sostenuto (1801)',
+    ],
+    epilogue: 'Silence is the ending.',
+  })
+  b.act(
+    'I — First Light',
+    m.annotation('accent', 0, 'firstStar'),
+    'Nothing in the sky. One cell in the middle of the lawn breathes teal on the first chord, ' +
+      'and a lullaby whispers to the seats around it from a tower behind you. Slow teal, blue ' +
+      'and violet wavefronts roll the rows for the whole act; on every breath of the music the ' +
+      'whole lawn inhales a dim flood. A duet of whispers leapfrogs the front corners in canon. ' +
+      'Look at your own wrist: you are the aurora.',
+  )
+  b.act(
+    'II — Moonrise',
+    m.annotation('accent', 0, 'moonrise'),
+    'A crescent moon of sixty drones rises from the west pad while a lancework crescent glows on ' +
+      'the shore as its reflection. Aurora curtains climb from both laser towers, ribbons cross ' +
+      'the panels, silver comets shimmer one at a time. The moon hums — a stereo bed placed ' +
+      'where it hangs. At the zenith silver waterfalls curtain the centre racks and every ' +
+      'wristband sparkles at once: the loudest the night ever gets, and it is quiet. Afterwards ' +
+      'the crescent melts into a heart.',
+  )
+  b.act(
+    'III — Sleep',
+    m.annotation('accent', 0, 'adagio'),
+    'Deep indigo holds the lawn dark. The drones scatter low over the lake as fireflies. ' +
+      'Goodnight whispers walk the rows from the back to the front; pulses contract toward the ' +
+      'cell where the aurora was born, dimmer each bar. On the last light that one cell blinks ' +
+      'once — and nothing follows.',
+  )
+}
+
 /** The whole show — shared verbatim by both variants. */
 function authorAurora(b: ShowBuilder, m: MusicRefs): void {
   actOneFirstLight(b, m)
@@ -424,6 +469,7 @@ export function aurora(): BuildResult {
     .music(tl)
     .preRoll(PRE_ROLL_SEC)
     .quantize('none')
+  programNotes(b, m, false)
   authorAurora(b, m)
   return b.build()
 }
@@ -447,6 +493,7 @@ export function auroraQuiet(): BuildResult {
     .preRoll(PRE_ROLL_SEC)
     .quantize('none')
     .noiseBudget(85)
+  programNotes(b, m, true)
   authorAurora(b, m)
   return b.build()
 }

@@ -1,8 +1,8 @@
 /**
- * gallery/timeline.ts — the seven-lane show timeline poster.
+ * gallery/timeline.ts — the nine-lane show timeline poster.
  *
  * Lanes top to bottom: Music, Pyro (incl. fabrication), Drones, Lasers,
- * Panels, Crowd, Beams. The music lane charts downbeat ticks, hit diamonds,
+ * Panels, Crowd, Beams, Fountains, Lights. The music lane charts downbeat ticks, hit diamonds,
  * and climax diamonds (a strength-1 climax also gets a full-height rule).
  * Every compiled cue renders as a hatched lead-in rect over
  * [fireSec, targetSec] (the anticipation window) plus a solid body over
@@ -55,6 +55,8 @@ const LANES = [
   { key: 'panels', name: 'Panels', color: GALLERY_THEME.lanes.panels },
   { key: 'crowd', name: 'Crowd', color: GALLERY_THEME.lanes.crowd },
   { key: 'beams', name: 'Beams', color: GALLERY_THEME.lanes.beams },
+  { key: 'fountains', name: 'Fountains', color: GALLERY_THEME.lanes.fountains },
+  { key: 'lights', name: 'Lights', color: GALLERY_THEME.lanes.lights },
 ] as const
 
 /** Cue lane index (fabrication charts on the pyro lane, per laneColorFor). */
@@ -73,6 +75,10 @@ function laneIndexFor(medium: Medium): number {
       return 5
     case 'beam':
       return 6
+    case 'fountain':
+      return 7
+    case 'searchlight':
+      return 8
   }
 }
 
@@ -130,7 +136,7 @@ function hatchPattern(key: string, color: string): string {
   )
 }
 
-/** Render the seven-lane timeline poster for a compiled show. */
+/** Render the nine-lane timeline poster for a compiled show. */
 export function timelineSvg(compiled: CompiledShow, opts: TimelineOpts = {}): string {
   const t = GALLERY_THEME
   const w = opts.widthPx ?? 960
@@ -328,7 +334,7 @@ export function timelineSvg(compiled: CompiledShow, opts: TimelineOpts = {}): st
     h,
     {
       title: `Timeline — ${compiled.show.meta.title}`,
-      desc: 'Seven-lane show timeline: music marks plus per-cue lead-in and body windows.',
+      desc: 'Nine-lane show timeline: music marks plus per-cue lead-in and body windows.',
     },
     children,
   )

@@ -429,6 +429,41 @@ function pass3Synthesis(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
   })
 }
 
+/** Program notes (the printed program), shared by both variants: one act per pass. */
+function programNotes(b: ShowBuilder, m: MusicRefs, quiet: boolean): void {
+  b.notes({
+    tagline: quiet
+      ? 'The crowd learns it is an instrument, then plays — the quiet performance closes on comet fans.'
+      : 'The crowd learns it is an instrument, then plays.',
+    music: ['Ludwig van Beethoven — Ode to Joy, from Symphony No. 9 (1824), three passes'],
+    epilogue: 'Bravo — that was you.',
+  })
+  b.act(
+    'I — Calibration',
+    m.annotation('accent', 0, CALIBRATE),
+    'A whispered count-in from the tower behind the lawn announces each figure before it ' +
+      'happens. Gold pulses ripple in from the four corners; a sweep runs the columns; one wave ' +
+      'laps the whole field; three thumps in every wristband take the roll call. Every figure ' +
+      'is commanded a fraction early so it completes on the downbeat.',
+  )
+  b.act(
+    'II — The Stunt',
+    m.annotation('accent', 0, STUNT),
+    "THEODOOR scrolls across the field, then card-stunt images on the caller's cues: a " +
+      'checkerboard, a smiley. The showpiece: drone digits 3-2-1-0 in the sky racing crowd ' +
+      'digits 3-2-1 on the wristbands, each pair landing on the same downbeat, digit 0 exactly ' +
+      'on the start of the third pass.',
+  )
+  b.act(
+    'III — Synthesis',
+    m.annotation('accent', 0, SYNTHESIS),
+    'Every medium enters, one phrase each: comet fans, a drone ring from the second pad, laser ' +
+      'fans, panel tickers, a gerb-fan set piece, a ping-pong of sound across mid-lawn and a ' +
+      'flyover along the front row. The finale lands a volley, spells BRAVO, and flashes the ' +
+      'whole field white.',
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Program factories
 // ---------------------------------------------------------------------------
@@ -448,6 +483,7 @@ function buildCardstunt(variant: 'standard' | 'quiet'): BuildResult {
     .music(tl)
     .preRoll(PRE_ROLL_SEC)
   if (quiet) b.noiseBudget(85)
+  programNotes(b, m, quiet)
 
   pass1Calibration(b, m)
   pass2Stunt(b, m)
